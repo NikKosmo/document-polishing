@@ -13,6 +13,7 @@ import argparse
 import yaml
 from pathlib import Path
 from datetime import datetime
+from ambiguity_detector import AmbiguityDetector
 import json
 
 # Add src to path
@@ -127,7 +128,8 @@ class DocumentPolisher:
         
         # Step 3: Detect ambiguities
         print(f"\nStep 3: Detecting ambiguities...")
-        ambiguities = self._detect_ambiguities(test_results)
+        detector = AmbiguityDetector(strategy='simple')
+        ambiguities = detector.detect(test_results)
         print(f"  Found {len(ambiguities)} potential ambiguities")
         
         # Step 4: Generate report
@@ -168,60 +170,6 @@ class DocumentPolisher:
             'polished': str(polished_file) if polished_file else None,
             'ambiguities_found': len(ambiguities)
         }
-    
-    def _detect_ambiguities(self, test_results: dict) -> list:
-        """Detect ambiguities by comparing model responses"""
-        ambiguities = []
-        
-        for section_id, data in test_results.items():
-            section = data['section']
-            results = data['results']
-            
-            # Extract interpretations from each model
-            interpretations = {}
-            assumptions = {}
-            
-            for model_name, response in results.items():
-                if response.get('error'):
-                    continue
-                
-                # Try to extract interpretation
-                if isinstance(response, dict):
-                    if 'raw_response' in response:
-                        # Parse raw response
-                        text = response['raw_response']
-                        interpretations[model_name] = text[:200]  # First 200 chars
-                    elif 'interpretation' in response:
-                        interpretations[model_name] = response['interpretation']
-                    
-                    if 'assumptions' in response and response['assumptions']:
-                        assumptions[model_name] = response['assumptions']
-            
-            # Check if interpretations differ significantly
-            if len(interpretations) >= 2:
-                unique_interps = set(interpretations.values())
-                
-                if len(unique_interps) > 1:
-                    ambiguities.append({
-                        'section_id': section_id,
-                        'section_header': section['header'],
-                        'section_content': section['content'],
-                        'interpretations': interpretations,
-                        'assumptions': assumptions,
-                        'severity': 'high' if len(unique_interps) == len(interpretations) else 'medium'
-                    })
-                elif assumptions:
-                    # Models agree but made assumptions
-                    ambiguities.append({
-                        'section_id': section_id,
-                        'section_header': section['header'],
-                        'section_content': section['content'],
-                        'interpretations': interpretations,
-                        'assumptions': assumptions,
-                        'severity': 'low'
-                    })
-        
-        return ambiguities
     
     def _generate_report(self, test_results: dict, ambiguities: list) -> str:
         """Generate markdown report"""
