@@ -75,4 +75,4 @@ If 0.6 - 0.95        → Ask LLM to verify
 
 ---
 
-**Format:** `[Priority] [Status] Task description \`date\` #tags`
+**See `../common_rules/todo.md` for format guidelines**
