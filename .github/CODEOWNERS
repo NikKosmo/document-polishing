@@ -1,0 +1,8 @@
+# Default owner for everything in the repo
+* @USERNAME
+
+# Scripts require owner approval
+/scripts/ @USERNAME
+
+# Config changes require owner approval
+config.yaml @USERNAME
