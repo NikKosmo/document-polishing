@@ -6,14 +6,12 @@
 
 ## Active
 
-- [P1] [ ] Integrate `ambiguity_detector.py` into `polish.py` `2025-12-01` #increment2 #integration
-- [P1] [ ] Wire up LLM-as-Judge strategy (use existing model as judge) `2025-12-01` #increment2 #core
+- [P1] [ ] Test Increment 2 with real documentation `2025-12-01` #testing #increment2
+- [P2] [ ] Add context injection (include prior sections in prompts) `2025-12-01` #improvement #context-blind-spot
 
 ## Backlog
 
-### Increment 2 - Ambiguity Detection (In Progress)
-- [P1] [ ] Add document name to output folder for easy identification `2025-12-01` #ux #quick-win
-- [P2] [ ] Add context injection (include prior sections in prompts) `2025-12-01` #improvement #context-blind-spot
+### Increment 2 - Ambiguity Detection (Finishing)
 - [P2] [ ] Add adversarial/red-team prompt variant `2025-12-01` #improvement #gemini-feedback
 
 ### Increment 3 - Fix Generation
@@ -38,6 +36,9 @@
 - [P1] [✓] Test Increment 1 with real CLI tools `2025-12-01` #testing #increment1
 - [P1] [✓] Create `ambiguity_detector.py` module with pluggable strategies `2025-12-01` #increment2
 - [P1] [✓] Research sentence embeddings options (Gemini) `2025-12-01` #research
+- [P1] [✓] Integrate `ambiguity_detector.py` into `polish.py` `2025-12-01` #increment2 #integration
+- [P1] [✓] Wire up LLM-as-Judge strategy (claude as judge) `2025-12-01` #increment2 #core
+- [P1] [✓] Add document name to output folder `2025-12-01` #ux #quick-win
 
 ## Blocked
 
