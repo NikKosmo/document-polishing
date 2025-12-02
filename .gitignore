@@ -43,6 +43,8 @@ workspace/          # Generated session outputs
 temp/              # Temporary files
 output/            # Generated outputs
 *.log
+SESSION_LOG.md      # User-specific session tracking
+TODO.md            # User-specific task list
 
 # Archives
 *.zip
