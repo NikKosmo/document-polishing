@@ -29,7 +29,7 @@ class CLIModel(ModelInterface):
         try:
             # Build command
             cmd = [self.command] + self.args
-            
+
             # Execute with prompt as stdin
             result = subprocess.run(
                 cmd,
@@ -38,24 +38,29 @@ class CLIModel(ModelInterface):
                 text=True,
                 timeout=self.timeout
             )
-            
+
             if result.returncode != 0:
                 return {
                     "error": True,
                     "stderr": result.stderr,
                     "raw_response": result.stdout
                 }
-            
+
             # Try to parse as JSON first
             try:
                 return json.loads(result.stdout)
             except json.JSONDecodeError:
-                # Return as raw text if not JSON
-                return {
-                    "error": False,
-                    "raw_response": result.stdout.strip()
-                }
-                
+                # Try stripping markdown code blocks and parsing again
+                stripped = self._strip_markdown_code_blocks(result.stdout)
+                try:
+                    return json.loads(stripped)
+                except json.JSONDecodeError:
+                    # Return as raw text if still not JSON
+                    return {
+                        "error": False,
+                        "raw_response": result.stdout.strip()
+                    }
+
         except subprocess.TimeoutExpired:
             return {
                 "error": True,
@@ -71,6 +76,19 @@ class CLIModel(ModelInterface):
                 "error": True,
                 "message": str(e)
             }
+
+    def _strip_markdown_code_blocks(self, text: str) -> str:
+        """Strip markdown code blocks from text (e.g., ```json ... ```)"""
+        text = text.strip()
+        # Remove ```json or ``` at start
+        if text.startswith('```json'):
+            text = text[7:]
+        elif text.startswith('```'):
+            text = text[3:]
+        # Remove ``` at end
+        if text.endswith('```'):
+            text = text[:-3]
+        return text.strip()
 
 
 class ModelFactory:
