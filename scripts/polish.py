@@ -52,35 +52,35 @@ class DocumentPolisher:
         # Judge model for LLM-as-Judge strategy
         self.judge_model = 'claude'
 
+        # Setup logging
+        self.log_file = self.workspace / "polish.log"
+        self._log(f"Session ID: {self.session_id}")
+        self._log(f"Workspace: {self.workspace}")
+        self._log(f"Document: {self.document_path}")
+        self._log(f"Config loaded from: {self.config_path}")
+        self._log(f"Judge model: {self.judge_model}")
+
         print(f"Session ID: {self.session_id}")
         print(f"Workspace: {self.workspace}")
+
+    def _log(self, message: str):
+        """Write to both console and log file"""
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        log_message = f"[{timestamp}] {message}"
+
+        # Write to log file
+        with open(self.log_file, 'a') as f:
+            f.write(log_message + '\n')
 
     def _load_config(self) -> dict:
         """Load configuration from YAML file"""
         if not self.config_path.exists():
-            print(f"Config file not found: {self.config_path}")
-            print("Using default configuration")
-            return self._default_config()
+            print(f"ERROR: Config file not found: {self.config_path}")
+            print(f"Please create config.yaml or specify path with --config")
+            sys.exit(1)
 
         with open(self.config_path) as f:
             return yaml.safe_load(f)
-
-    def _default_config(self) -> dict:
-        """Return default configuration"""
-        return {
-            'models': {
-                'claude': {'type': 'cli', 'command': 'claude', 'args': ['-p'], 'enabled': True},
-                'gemini': {'type': 'cli', 'command': 'gemini', 'enabled': True},
-            },
-            'profiles': {
-                'standard': {'models': ['claude', 'gemini'], 'iterations': 1}
-            },
-            'settings': {
-                'default_profile': 'standard',
-                'workspace_dir': 'workspace',
-                'output_dir': 'output'
-            }
-        }
 
     def _create_judge_query_func(self):
         """Create a query function for the LLM judge"""
@@ -117,11 +117,14 @@ class DocumentPolisher:
                 models = self.config['profiles'][default_profile]['models']
 
         print(f"Using models: {', '.join(models)}\n")
+        self._log(f"Using models: {', '.join(models)}")
 
         # Step 1: Extract sections
         print("Step 1: Extracting testable sections...")
+        self._log("Step 1: Extracting testable sections...")
         sections = self.processor.extract_sections()
         print(f"  Found {len(sections)} sections")
+        self._log(f"Found {len(sections)} sections")
         for i, summary in enumerate(self.processor.get_section_summary()):
             print(f"  {summary}")
 
@@ -131,14 +134,17 @@ class DocumentPolisher:
 
         # Step 2: Test sections with models
         print(f"\nStep 2: Testing sections with models...")
+        self._log("Step 2: Testing sections with models...")
         test_results = {}
 
         for i, section in enumerate(sections):
             print(f"\n  Testing section [{i}]: {section['header']}")
+            self._log(f"Testing section [{i}]: {section['header']}")
             prompt = self.prompt_gen.create_interpretation_prompt(section)
 
             # Query all models
             results = self.model_manager.query_all(prompt, models)
+            self._log(f"Section [{i}] completed - queried {len(results)} models")
             test_results[f"section_{i}"] = {
                 'section': section,
                 'results': results
@@ -152,9 +158,11 @@ class DocumentPolisher:
 
         # Step 3: Detect ambiguities using ambiguity_detector module
         print(f"\nStep 3: Detecting ambiguities...")
+        self._log("Step 3: Detecting ambiguities...")
         detector = self._create_ambiguity_detector()
         ambiguities = detector.detect(test_results)
         print(f"  Found {len(ambiguities)} potential ambiguities")
+        self._log(f"Found {len(ambiguities)} potential ambiguities")
 
         # Print summary by severity
         severity_counts = {}
@@ -173,12 +181,14 @@ class DocumentPolisher:
 
         # Step 4: Generate report
         print(f"\nStep 4: Generating report...")
+        self._log("Step 4: Generating report...")
         report = self._generate_report(test_results, ambiguities)
 
         report_file = self.workspace / "report.md"
         with open(report_file, 'w') as f:
             f.write(report)
         print(f"  Report saved to: {report_file}")
+        self._log(f"Report saved to: {report_file}")
 
         # Step 5: Create polished version (if ambiguities found)
         if ambiguities:
@@ -201,6 +211,10 @@ class DocumentPolisher:
         print(f"Report: {report_file}")
         if polished_file:
             print(f"Polished: {polished_file}")
+
+        self._log(f"Polish complete - {len(ambiguities)} ambiguities found")
+        self._log(f"Workspace: {self.workspace}")
+        self._log(f"Log file: {self.log_file}")
         print()
 
         return {
