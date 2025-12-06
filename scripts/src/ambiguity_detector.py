@@ -35,26 +35,23 @@ class Interpretation:
 
     @classmethod
     def from_response(cls, model_name: str, response: Dict[str, Any]) -> 'Interpretation':
-        """Create Interpretation from model response dict"""
+        """Create Interpretation from model response dict (already parsed format)"""
+        # Handle error responses
         if response.get('error'):
             return cls(
                 model_name=model_name,
                 raw_response=str(response),
-                error=response.get('message', 'Unknown error')
+                error=response.get('message', response.get('stderr', 'Unknown error'))
             )
 
-        raw = response.get('raw_response', '')
-
-        # Try to parse JSON from response
-        parsed = cls._try_parse_json(raw)
-
+        # Accept parsed format directly (from test_results.json)
         return cls(
             model_name=model_name,
-            raw_response=raw,
-            interpretation=parsed.get('interpretation', raw[:500]),
-            steps=parsed.get('steps', []),
-            assumptions=parsed.get('assumptions', []),
-            ambiguities=parsed.get('ambiguities', [])
+            raw_response=str(response),
+            interpretation=response.get('interpretation', ''),
+            steps=response.get('steps', []),
+            assumptions=response.get('assumptions', []),
+            ambiguities=response.get('ambiguities', [])
         )
 
     @staticmethod
@@ -335,7 +332,7 @@ Respond with JSON only:
         return prompt
 
     def _parse_judge_response(self, response: Dict[str, Any], interpretations: List[Interpretation]) -> Dict[str, Any]:
-        """Parse the judge model's response"""
+        """Parse the judge model's response (already parsed JSON format)"""
         default = {
             'agree': False,
             'similarity': 0.5,
@@ -347,14 +344,12 @@ Respond with JSON only:
             default['details'] = f"Judge error: {response.get('message', 'Unknown')}"
             return default
 
-        raw = response.get('raw_response', '')
-        parsed = Interpretation._try_parse_json(raw)
-
-        if not parsed:
-            default['details'] = f"Could not parse judge JSON. Raw: {raw[:200]}"
+        # Response is already parsed JSON (has 'agree', 'similarity', etc. keys directly)
+        if 'agree' not in response:
+            default['details'] = f"Judge response missing 'agree' field. Keys: {list(response.keys())}"
             return default
 
-        agree = parsed.get('agree', False)
+        agree = response.get('agree', False)
 
         # Group models based on agreement
         if agree:
@@ -364,10 +359,10 @@ Respond with JSON only:
 
         return {
             'agree': agree,
-            'similarity': float(parsed.get('similarity', 0.5)),
-            'details': parsed.get('explanation', ''),
+            'similarity': float(response.get('similarity', 0.5)),
+            'details': response.get('explanation', ''),
             'groups': groups,
-            'key_differences': parsed.get('key_differences', [])
+            'key_differences': response.get('key_differences', [])
         }
 
 
