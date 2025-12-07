@@ -9,9 +9,13 @@ Supports multiple comparison strategies:
 
 import json
 import re
+import logging
 from typing import Dict, List, Any, Optional, Callable
 from dataclasses import dataclass, field
 from enum import Enum
+
+# Logger for judge responses
+judge_logger = logging.getLogger('judge_responses')
 
 
 class Severity(Enum):
@@ -428,6 +432,14 @@ List of detected Ambiguity objects
 
             # Compare interpretations
             comparison = self.strategy.compare(list(interpretations.values()))
+
+            # Log judge response
+            judge_logger.info(json.dumps({
+                'section_id': section_id,
+                'section_header': section.get('header', 'Unknown'),
+                'models_compared': list(interpretations.keys()),
+                'judge_response': comparison
+            }, indent=2))
 
             # Determine if this is an ambiguity
             if not comparison['agree']:
