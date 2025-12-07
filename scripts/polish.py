@@ -11,6 +11,7 @@ Usage:
 import sys
 import argparse
 import yaml
+import logging
 from pathlib import Path
 from datetime import datetime
 import json
@@ -60,6 +61,9 @@ class DocumentPolisher:
         self._log(f"Config loaded from: {self.config_path}")
         self._log(f"Judge model: {self.judge_model}")
 
+        # Setup judge response logger
+        self._setup_judge_logger()
+
         print(f"Session ID: {self.session_id}")
         print(f"Workspace: {self.workspace}")
 
@@ -71,6 +75,26 @@ class DocumentPolisher:
         # Write to log file
         with open(self.log_file, 'a') as f:
             f.write(log_message + '\n')
+
+    def _setup_judge_logger(self):
+        """Setup logger for judge responses"""
+        judge_logger = logging.getLogger('judge_responses')
+        judge_logger.setLevel(logging.INFO)
+
+        # Create file handler
+        judge_file = self.workspace / "judge_responses.log"
+        handler = logging.FileHandler(judge_file, mode='w')
+        handler.setLevel(logging.INFO)
+
+        # Create formatter (just the message, no timestamp prefix)
+        formatter = logging.Formatter('%(message)s')
+        handler.setFormatter(formatter)
+
+        # Add handler to logger
+        judge_logger.addHandler(handler)
+
+        # Prevent propagation to root logger
+        judge_logger.propagate = False
 
     def _load_config(self) -> dict:
         """Load configuration from YAML file"""
