@@ -421,12 +421,16 @@ List of detected Ambiguity objects
             section = data.get('section', {})
             results = data.get('results', {})
 
-            # Parse interpretations
+            # Parse interpretations, filtering out faulty/empty ones
             interpretations = {}
             for model_name, response in results.items():
                 interp = Interpretation.from_response(model_name, response)
-                if not interp.error:
-                    interpretations[model_name] = interp
+                # Filter out error responses and empty interpretations
+                if interp.error:
+                    continue
+                if not interp.interpretation or not interp.interpretation.strip():
+                    continue
+                interpretations[model_name] = interp
 
             # Need at least 2 valid interpretations to compare
             if len(interpretations) < 2:
