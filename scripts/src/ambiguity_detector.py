@@ -318,6 +318,8 @@ query_func: Function that takes a prompt string and returns model response dict
                 interp_text += f"Steps: {', '.join(interp.steps[:5])}\n"
             if interp.assumptions:
                 interp_text += f"Assumptions made: {', '.join(interp.assumptions)}\n"
+            if interp.ambiguities:
+                interp_text += f"Noted ambiguities: {', '.join(interp.ambiguities)}\n"
 
         prompt = f"""Compare these interpretations of the same documentation section.
 

@@ -3,7 +3,7 @@
 import subprocess
 import json
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from abc import ABC, abstractmethod
 
 
