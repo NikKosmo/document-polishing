@@ -10,7 +10,7 @@ models:
     type: cli
     command: gemini
     args: []
-    timeout: 180
+    timeout: 240
     enabled: true
 
   codex:
