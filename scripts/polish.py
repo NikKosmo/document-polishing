@@ -38,8 +38,14 @@ class DocumentPolisher:
         # Load configuration
         self.config = self._load_config()
 
+        # Get session management config (with defaults)
+        self.session_config = self.config.get("session_management", {"enabled": False})
+
         # Initialize components
-        self.model_manager = ModelManager(self.config['models'])
+        self.model_manager = ModelManager(
+            self.config["models"],
+            session_config=self.session_config
+        )
         self.processor = DocumentProcessor(str(self.document_path))
         self.prompt_gen = PromptGenerator()
 
@@ -156,6 +162,24 @@ class DocumentPolisher:
             print("\n⚠️  No testable sections found in document")
             return
 
+        # Step 1.5: Initialize sessions (if enabled)
+        if self.model_manager.sessions_enabled():
+            print(f"\nStep 1.5: Initializing model sessions with document context...")
+            self._log("Step 1.5: Initializing model sessions...")
+            document_content = self.processor.get_full_content()
+            purpose_prompt = self.session_config.get(
+                "purpose_prompt",
+                "This document defines standards and requirements. Please analyze sections within this context."
+            )
+            session_results = self.model_manager.init_sessions(
+                document=document_content,
+                purpose=purpose_prompt,
+                model_names=models
+            )
+            self._log(f"Sessions initialized: {len(session_results)} of {len(models)} models")
+        else:
+            self._log("Session management disabled, using stateless mode")
+
         # Step 2: Test sections with models
         print(f"\nStep 2: Testing sections with models...")
         self._log("Step 2: Testing sections with models...")
@@ -239,6 +263,12 @@ class DocumentPolisher:
         self._log(f"Polish complete - {len(ambiguities)} ambiguities found")
         self._log(f"Workspace: {self.workspace}")
         self._log(f"Log file: {self.log_file}")
+
+        # Cleanup sessions
+        if self.model_manager.has_active_sessions():
+            self.model_manager.cleanup_sessions()
+            self._log("Sessions cleaned up")
+
         print()
 
         return {

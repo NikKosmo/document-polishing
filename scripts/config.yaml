@@ -3,7 +3,7 @@ models:
     type: cli
     command: claude
     args: ["-p"]
-    timeout: 60
+    timeout: 300
     enabled: true
 
   gemini:
@@ -17,7 +17,7 @@ models:
     type: cli
     command: codex
     args: ["exec", "--skip-git-repo-check"]
-    timeout: 60
+    timeout: 300
     enabled: true
 
 profiles:
@@ -37,3 +37,30 @@ settings:
   default_profile: standard
   workspace_dir: workspace
   output_dir: output
+
+session_management:
+  # Enable session-based querying for document context
+  enabled: true
+
+  # Session error handling mode
+  # "auto-recreate" - Automatically recreate lost sessions
+  # "fail-fast" - Abort on session errors
+  mode: "auto-recreate"
+
+  # Section query format
+  # "resend-chunk" - Re-send section content in each query
+  # "reference-header" - Reference section by header/line numbers (Phase 4)
+  query_format: "resend-chunk"
+
+  # System prompt template for document purpose
+  purpose_prompt: |
+    This document defines standards for creating workflow and instruction
+    documents that AI models execute reliably. Please analyze sections
+    within this context.
+
+  # Session timeout (seconds)
+  timeout: 600
+
+  # Retry settings
+  max_retries: 1
+  retry_delay_seconds: 2
