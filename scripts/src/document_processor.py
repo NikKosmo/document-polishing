@@ -35,9 +35,16 @@ class DocumentProcessor:
             'level': 0
         }
         
+        # Track code fence state to avoid treating headers inside fences as section breaks
+        in_code_fence = False
+        
         for i, line in enumerate(lines):
-            # Check if line is a header
-            header_match = re.match(r'^(#{1,6})\s+(.+)$', line)
+            # Check for code fence toggling (``` with optional language identifier)
+            if re.match(r'^```', line.strip()):
+                in_code_fence = not in_code_fence
+            
+            # Check if line is a header (only if not inside a code fence)
+            header_match = re.match(r'^(#{1,6})\s+(.+)$', line) if not in_code_fence else None
             
             if header_match:
                 # Save previous section if it has content
