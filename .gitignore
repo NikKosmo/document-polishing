@@ -46,7 +46,6 @@ temp/              # Temporary files
 output/            # Generated outputs
 *.log
 SESSION_LOG.md      # User-specific session tracking
-TODO.md             # User-specific task tracking
 
 # Archives
 *.zip
