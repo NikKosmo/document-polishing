@@ -26,6 +26,23 @@ class Severity(Enum):
     LOW = "low"            # Minor variations
 
 
+class JudgeFailureError(Exception):
+    """
+    Raised when the LLM-as-Judge fails to compare interpretations.
+    
+    This exception triggers fail-fast behavior - the system should stop
+    immediately rather than continuing with invalid results.
+    """
+    def __init__(self, section_id: str, reason: str, details: str = ""):
+        self.section_id = section_id
+        self.reason = reason
+        self.details = details
+        message = f"Judge comparison failed for {section_id}: {reason}"
+        if details:
+            message += f" - {details}"
+        super().__init__(message)
+
+
 @dataclass
 class Interpretation:
     """Parsed interpretation from a model response"""
@@ -295,6 +312,7 @@ Args:
 query_func: Function that takes a prompt string and returns model response dict
         """
         self.query_func = query_func
+        self._current_section_id = None  # Set by AmbiguityDetector before each compare()
 
     def compare(self, interpretations: List[Interpretation]) -> Dict[str, Any]:
         if len(interpretations) < 2:
@@ -306,7 +324,7 @@ query_func: Function that takes a prompt string and returns model response dict
         # Query the judge model
         response = self.query_func(prompt)
 
-        # Parse response
+        # Parse response (may raise JudgeFailureError)
         return self._parse_judge_response(response, interpretations)
 
     def _build_comparison_prompt(self, interpretations: List[Interpretation]) -> str:
@@ -338,22 +356,31 @@ Respond with JSON only:
         return prompt
 
     def _parse_judge_response(self, response: Dict[str, Any], interpretations: List[Interpretation]) -> Dict[str, Any]:
-        """Parse the judge model's response (already parsed JSON format)"""
-        default = {
-            'agree': False,
-            'similarity': 0.5,
-            'details': 'Could not parse judge response',
-            'groups': [[i.model_name] for i in interpretations]
-        }
+        """
+        Parse the judge model's response (already parsed JSON format).
+        
+        Raises:
+            JudgeFailureError: If the judge query failed or returned invalid response.
+                              This triggers fail-fast behavior.
+        """
+        section_id = self._current_section_id or "unknown_section"
 
+        # Check for judge query errors (timeout, subprocess failure, etc.)
         if response.get('error'):
-            default['details'] = f"Judge error: {response.get('message', 'Unknown')}"
-            return default
+            error_msg = response.get('message', response.get('stderr', 'Unknown error'))
+            raise JudgeFailureError(
+                section_id=section_id,
+                reason="Judge query error",
+                details=error_msg
+            )
 
-        # Response is already parsed JSON (has 'agree', 'similarity', etc. keys directly)
+        # Check for missing required field (invalid JSON response from judge)
         if 'agree' not in response:
-            default['details'] = f"Judge response missing 'agree' field. Keys: {list(response.keys())}"
-            return default
+            raise JudgeFailureError(
+                section_id=section_id,
+                reason="Invalid judge response",
+                details=f"Missing 'agree' field. Response keys: {list(response.keys())}"
+            )
 
         agree = response.get('agree', False)
 
@@ -436,7 +463,11 @@ List of detected Ambiguity objects
             if len(interpretations) < 2:
                 continue
 
-            # Compare interpretations
+            # Set section context for LLMJudgeStrategy (used for error messages)
+            if hasattr(self.strategy, '_current_section_id'):
+                self.strategy._current_section_id = section_id
+
+            # Compare interpretations (may raise JudgeFailureError for LLM judge)
             comparison = self.strategy.compare(list(interpretations.values()))
 
             # Log judge response

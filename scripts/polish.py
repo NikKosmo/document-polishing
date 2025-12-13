@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent / 'src'))
 from model_interface import ModelManager
 from document_processor import DocumentProcessor
 from prompt_generator import PromptGenerator
-from ambiguity_detector import AmbiguityDetector, Severity
+from ambiguity_detector import AmbiguityDetector, Severity, JudgeFailureError
 
 
 __version__ = "0.2.0"
@@ -208,7 +208,41 @@ class DocumentPolisher:
         print(f"\nStep 3: Detecting ambiguities...")
         self._log("Step 3: Detecting ambiguities...")
         detector = self._create_ambiguity_detector()
-        ambiguities = detector.detect(test_results)
+        
+        try:
+            ambiguities = detector.detect(test_results)
+        except JudgeFailureError as e:
+            # Fail-fast: Judge failure means we cannot proceed with valid results
+            error_msg = f"ERROR: {e}"
+            print(f"\n{'='*60}")
+            print(f"❌ JUDGE COMPARISON FAILED")
+            print(f"{'='*60}")
+            print(f"Section: {e.section_id}")
+            print(f"Reason: {e.reason}")
+            if e.details:
+                print(f"Details: {e.details}")
+            print(f"\nStopping polish process - cannot proceed without valid judge comparisons.")
+            print(f"See logs at: {self.log_file}")
+            print(f"{'='*60}\n")
+            
+            self._log(error_msg)
+            self._log(f"Judge failure - aborting polish process")
+            
+            # Cleanup sessions before exit
+            if self.model_manager.has_active_sessions():
+                self.model_manager.cleanup_sessions()
+                self._log("Sessions cleaned up")
+            
+            # Return error result instead of continuing with bogus data
+            return {
+                'workspace': str(self.workspace),
+                'report': None,
+                'polished': None,
+                'ambiguities_found': 0,
+                'error': str(e),
+                'error_type': 'judge_failure'
+            }
+        
         print(f"  Found {len(ambiguities)} potential ambiguities")
         self._log(f"Found {len(ambiguities)} potential ambiguities")
 
