@@ -5,13 +5,15 @@
 ---
 
 ## Active
-- [P1] [ ] Debug Gemini session creation (fails with "Failed to find Gemini session number" - session ID parsing issue, not timeout) `2025-12-12` #bug #gemini #session-management
 - [P1] [ ] Handle models asking for clarification instead of following prompt format (e.g., section_20 in document_structure test - Claude responded with "I need to clarify the context here" instead of JSON) `2025-12-11` #bug #prompt-compliance #data-quality
 - [P1] [ ] Fix Gemini JSON parsing failure (section_7 in todo.md test - looks like valid JSON but failed to parse) `2025-12-06` #bug #gemini #parsing
 - [P2] [ ] Test remaining context dependency documents (abbreviations, prerequisites, cross-references, constraints, comprehensive) `2025-12-12` #testing #session-management
 - [P2] [ ] Add context injection - include up to 2 prior sections in prompts (configurable via --context-sections N) `2025-12-06` #improvement #context-blind-spot
 
 ## Backlog
+
+### Architecture Improvements
+- [P2] [ ] Make process more modular - Each step should be executable independently using artifacts from previous step (e.g., run judge on existing test_results.json, run report generation on existing ambiguities.json) to enable debugging, re-running failed steps, and testing individual components `2025-12-12` #architecture #modularity #improvement
 
 ### Increment 2 - Ambiguity Detection (Finishing)
 - [P3] [ ] Investigate Gemini timeout issues (increase timeout or simplify prompts) `2025-12-06` #bug #gemini
@@ -35,6 +37,8 @@
 
 ## Completed
 
+- [P0] [✓] Fix fail-fast violation when judge fails - Implemented JudgeFailureError exception, stops immediately on judge failure instead of continuing with false ambiguities - Added comprehensive error handling in polish.py and ambiguity_detector.py - Created 12 new tests (all 73 tests passing) - System now exits cleanly with clear error message when judge times out or returns invalid response `2025-12-13` #bug #critical #fail-fast #judge
+- [P1] [✓] Fix Gemini session creation to use "latest" instead of parsing session list `2025-12-12` #bug #gemini #session-management
 - [P0] [✓] Implement and test session management for document context `2025-12-12` #feature #session-management #context
 - [P1] [✓] Fix chunking logic to handle markdown code fences correctly `2025-12-11` #bug #chunking #data-quality
 - [P1] [✓] Filter out faulty/empty interpretations before sending to judge `2025-12-10` #bug #judge #data-quality
