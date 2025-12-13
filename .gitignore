@@ -41,9 +41,9 @@ venv.bak/
 .DS_Store
 
 # Project-specific
-workspace/          # Generated session outputs
-temp/              # Temporary files
-output/            # Generated outputs
+**/workspace/       # Generated session outputs (anywhere in tree)
+**/temp/            # Temporary files (anywhere in tree)
+**/output/          # Generated outputs (anywhere in tree)
 *.log
 SESSION_LOG.md      # User-specific session tracking
 
