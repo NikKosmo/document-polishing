@@ -5,6 +5,7 @@
 ---
 
 ## Active
+- [P1] [ ] Include original document in workspace `2025-12-15`
 - [P1] [ ] Handle models asking for clarification instead of following prompt format (e.g., section_20 in document_structure test - Claude responded with "I need to clarify the context here" instead of JSON) `2025-12-11` #bug #prompt-compliance #data-quality
 - [P1] [ ] Fix Gemini JSON parsing failure (section_7 in todo.md test - looks like valid JSON but failed to parse) `2025-12-06` #bug #gemini #parsing
 - [P2] [ ] Test remaining context dependency documents (abbreviations, prerequisites, cross-references, constraints, comprehensive) `2025-12-12` #testing #session-management
@@ -37,6 +38,9 @@
 
 ## Completed
 
+- [P3] [✓] Simplify test matrix to Python 3.11 only - Removed multi-version testing (3.8-3.11) for 4x faster CI - This is a personal tool, no need for broad version compatibility - PR #14 `2025-12-13` #ci #optimization
+- [P2] [✓] Fix gitignore patterns for workspace/temp/output - Changed patterns from workspace/ to **/workspace/ to match directories anywhere in tree - Fixed issue where scripts/workspace/ was not being ignored - PR #15 `2025-12-13` #bug #gitignore
+- [P2] [✓] Add mandatory git workflow check to CLAUDE.md - Added requirement to read common_rules/git_workflow.md before any git command - Added critical note to git_workflow.md header - Prevents future git mistakes `2025-12-13` #process #git
 - [P0] [✓] Add GitHub Actions check to prevent gitignore violations - Created .github/workflows/check-gitignore.yml with two-stage validation (gitignore patterns + sensitive files) - Checks files with --diff-filter=ACMRT, uses git check-ignore for validation - Fails CI if gitignored files detected, warns on sensitive patterns - Will prevent future violations like PR #11 `2025-12-13` #critical #ci #github-actions #prevention
 - [P0] [✓] Fix fail-fast violation when judge fails - Implemented JudgeFailureError exception, stops immediately on judge failure instead of continuing with false ambiguities - Added comprehensive error handling in polish.py and ambiguity_detector.py - Created 12 new tests (all 73 tests passing) - System now exits cleanly with clear error message when judge times out or returns invalid response `2025-12-13` #bug #critical #fail-fast #judge
 - [P1] [✓] Fix Gemini session creation to use "latest" instead of parsing session list `2025-12-12` #bug #gemini #session-management

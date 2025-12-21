@@ -40,7 +40,7 @@ settings:
 
 session_management:
   # Enable session-based querying for document context
-  enabled: true
+  enabled: true  # Enabled for test run
 
   # Session error handling mode
   # "auto-recreate" - Automatically recreate lost sessions
@@ -59,7 +59,7 @@ session_management:
     within this context.
 
   # Session timeout (seconds)
-  timeout: 600
+  timeout: 900  # Increased for large documents
 
   # Retry settings
   max_retries: 1
