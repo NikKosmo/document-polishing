@@ -8,8 +8,11 @@
 - [P1] [ ] Include original document in workspace `2025-12-15`
 - [P1] [ ] Handle models asking for clarification instead of following prompt format (e.g., section_20 in document_structure test - Claude responded with "I need to clarify the context here" instead of JSON) `2025-12-11` #bug #prompt-compliance #data-quality
 - [P1] [ ] Fix Gemini JSON parsing failure (section_7 in todo.md test - looks like valid JSON but failed to parse) `2025-12-06` #bug #gemini #parsing
+- [P2] [ ] Remove "Detailed Test Results" section from report.md `2025-12-21` #optimization #context-efficiency
+  - Test results already available as test_results.json in same directory
+  - Report mainly read by AI models - detailed results waste context
+  - Keep summary, remove full test output duplication
 - [P2] [ ] Test remaining context dependency documents (abbreviations, prerequisites, cross-references, constraints, comprehensive) `2025-12-12` #testing #session-management
-- [P2] [ ] Add context injection - include up to 2 prior sections in prompts (configurable via --context-sections N) `2025-12-06` #improvement #context-blind-spot
 
 ## Backlog
 

@@ -1,22 +1,24 @@
 # Documentation Polishing System
 
-**Version:** 0.1.0  
-**Status:** Increment 1 Complete (Core System Working)
+**Version:** 0.2.0
+**Status:** Increment 2 Complete (Ambiguity Detection Working)
 
 ## Overview
 
 Automated tool that detects ambiguities in documentation by testing it with multiple AI models and identifying where interpretations differ.
 
-## ✅ Current Status - Increment 1 Complete
+## ✅ Current Status - Increment 2 Complete
 
 ### What Works:
 - ✅ Extract testable sections from markdown documents
 - ✅ Test sections with multiple CLI-based AI models
-- ✅ Detect ambiguities by comparing model interpretations
-- ✅ Generate detailed reports showing where models disagree
+- ✅ **LLM-as-Judge strategy** - Claude compares model interpretations
+- ✅ **Session management** - Full document context maintained across queries
+- ✅ Detect ambiguities with severity levels (high/medium/low)
+- ✅ Generate detailed reports showing disagreements and assumptions
 - ✅ Create polished documents with clarification markers
 - ✅ Support for multiple models (claude, gemini, codex)
-- ✅ Configurable via YAML
+- ✅ Configurable via YAML with profiles (quick/standard/thorough)
 
 ### Working Commands:
 ```bash
@@ -27,10 +29,10 @@ cd scripts && python polish.py --version
 cd scripts && python polish.py --list-models
 
 # Polish a document (uses default models from config)
-cd scripts && python polish.py ../test/test_simple.md
+cd scripts && python polish.py ../docs/test/test_context_terms_definitions.md
 
 # Use specific models
-cd scripts && python polish.py ../test/test_simple.md --models claude,gemini
+cd scripts && python polish.py ../docs/test/test_context_terms_definitions.md --models claude,gemini
 
 # Use a profile
 cd scripts && python polish.py document.md --profile standard
@@ -75,12 +77,12 @@ models:
 
 ### Basic Usage:
 ```bash
-cd scripts && python polish.py ../test/test_simple.md
+cd scripts && python polish.py ../docs/test/test_context_terms_definitions.md
 ```
 
 Output files created in `workspace/polish_TIMESTAMP/`:
 - `report.md` - Detailed analysis report
-- `test_simple_polished.md` - Document with clarification notes
+- `test_context_terms_definitions_polished.md` - Document with clarification notes
 - `test_results.json` - Raw test results (JSON)
 
 ### Example Report Output:
@@ -89,7 +91,7 @@ Output files created in `workspace/polish_TIMESTAMP/`:
 # Documentation Polish Report
 
 **Session ID:** polish_20251122_075228
-**Document:** test/test_simple.md
+**Document:** docs/test/test_context_terms_definitions.md
 **Date:** 2025-11-22 07:52:28
 
 ## Summary
@@ -135,8 +137,9 @@ polish_system/
 │   ├── model_interface.py       # Model communication layer
 │   ├── document_processor.py    # Document parsing
 │   └── prompt_generator.py      # Prompt templates
-├── test/
-│   └── test_simple.md           # Test document
+├── docs/test/                   # Test documents
+│   ├── test_context_terms_definitions.md
+│   └── test_context_abbreviations_acronyms.md
 ├── workspace/                   # Session workspaces (generated)
 │   └── polish_TIMESTAMP/
 │       ├── report.md
@@ -170,24 +173,31 @@ The system currently detects:
    - Implicit references (the process, this output)
    - Undefined terms (standard, required, appropriate)
 
-## Known Limitations (Increment 1)
+## Known Limitations
 
+**Current (Increment 2):**
 - ❌ Fix generation is basic (just adds clarification notes)
 - ❌ No iterative polishing yet
 - ❌ No validation of polished documents
 - ❌ CLI models only (no API support yet)
-- ❌ Simple text comparison for ambiguity detection
+- ⚠️ Cannot control model context window limits (may lose initial document)
+- ⚠️ Some models don't follow prompt format consistently
 
-These will be addressed in Increments 2-4.
+**Addressed in Increment 2:**
+- ✅ LLM-as-Judge replaces simple text comparison
+- ✅ Session management provides full document context
+- ✅ Model-reported ambiguities included in analysis
+
+These will be addressed in Increments 3-4.
 
 ## Next Steps (Roadmap)
 
-### Increment 2: Ambiguity Detection (Next)
-- [ ] Improved comparison logic (semantic similarity)
-- [ ] Better ambiguity classification
-- [ ] Confidence scoring
+### Increment 2: Ambiguity Detection ✅ COMPLETE
+- ✅ LLM-as-Judge comparison (not just text matching)
+- ✅ Ambiguity severity classification
+- ✅ Session management for document context
 
-### Increment 3: Fix Generation
+### Increment 3: Fix Generation (Next)
 - [ ] Smart fix strategies
 - [ ] Multiple fix options
 - [ ] Fix application and validation
@@ -238,7 +248,7 @@ Create N cards per word with the required information.
 Check the output using the standard validation process.
 ```
 
-Run: `cd scripts && python polish.py ../test/test_simple.md`
+Run: `cd scripts && python polish.py ../docs/test/test_context_terms_definitions.md`
 
 Expected: Detects 3 ambiguities (sequential vs parallel, N entries vs N parameter, standard validation undefined)
 
@@ -251,6 +261,12 @@ This is an active development project. Current focus: Increment 1 → Increment 
 MIT (to be added)
 
 ## Version History
+
+- **0.2.0** (2025-12-21) - Increment 2 Complete
+  - LLM-as-Judge strategy implemented
+  - Session management with full document context
+  - Severity-based ambiguity classification
+  - Enhanced report generation
 
 - **0.1.0** (2025-11-22) - Increment 1 Complete
   - Core system working
