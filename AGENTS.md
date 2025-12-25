@@ -33,10 +33,10 @@ document_polishing/
 ├── README.md              # User overview
 ├── SESSION_LOG.md         # Development history
 ├── TODO.md                # Pending tasks
-├── config.yaml            # Model configuration
 ├── requirements.txt       # Dependencies
 ├── scripts/               # Main scripts
 │   ├── polish.py              # Main entry point
+│   ├── config.yaml            # Model configuration
 │   └── src/                   # Core modules
 │   │   ├── model_interface.py     # Model communication
 │   │   ├── document_processor.py  # Document parsing
@@ -49,7 +49,7 @@ document_polishing/
 
 ## Configuration
 
-**Models:** Configured in `config.yaml` - currently supports CLI-based models (claude, gemini, codex)
+**Models:** Configured in `scripts/config.yaml` - currently supports CLI-based models (claude, gemini, codex)
 
 **Profiles:**
 - `quick` - 2 models, 1 iteration
@@ -92,7 +92,7 @@ document_polishing/
 
 ## Key Files Reference
 
-**Configuration:** `config.yaml`
+**Configuration:** `scripts/config.yaml`
 **Core:** `scripts/polish.py`, `scripts/src/*.py`
 **Documentation:** `DOCUMENTATION_POLISHING_WORKFLOW.md` (full design), `README.md` (user guide)
 **Development:** `SESSION_LOG.md` (history), `TODO.md` (pending tasks)
