@@ -15,6 +15,7 @@ import logging
 from pathlib import Path
 from datetime import datetime
 import json
+import shutil
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
@@ -56,6 +57,10 @@ class DocumentPolisher:
         self.workspace = Path(self.config['settings']['workspace_dir']) / self.session_id
         self.workspace.mkdir(parents=True, exist_ok=True)
 
+        # Copy original document to workspace for reference
+        original_doc_copy = self.workspace / f"original_{self.document_path.name}"
+        shutil.copy2(self.document_path, original_doc_copy)
+
         # Judge model for LLM-as-Judge strategy
         self.judge_model = 'claude'
 
@@ -64,6 +69,7 @@ class DocumentPolisher:
         self._log(f"Session ID: {self.session_id}")
         self._log(f"Workspace: {self.workspace}")
         self._log(f"Document: {self.document_path}")
+        self._log(f"Original document copied to: {original_doc_copy}")
         self._log(f"Config loaded from: {self.config_path}")
         self._log(f"Judge model: {self.judge_model}")
 
@@ -290,6 +296,7 @@ class DocumentPolisher:
         print(f"Polish Complete!")
         print(f"{'='*60}")
         print(f"Workspace: {self.workspace}")
+        print(f"Original: {self.workspace / f'original_{self.document_path.name}'}")
         print(f"Report: {report_file}")
         if polished_file:
             print(f"Polished: {polished_file}")
@@ -379,27 +386,9 @@ class DocumentPolisher:
 
                 report += "\n---\n\n"
 
-        # Detailed results section
-        report += "\n## Detailed Test Results\n\n"
-        report += "<details>\n<summary>Click to expand raw results</summary>\n\n"
-
-        for section_id, data in test_results.items():
-            section = data['section']
-            report += f"### {section['header']}\n\n"
-
-            for model, response in data['results'].items():
-                report += f"**{model}:**\n"
-                if isinstance(response, dict) and response.get('error'):
-                    report += f"- Error: {response.get('message', 'Unknown error')}\n"
-                else:
-                    # Truncate long responses
-                    resp_str = json.dumps(response, indent=2, default=str)
-                    if len(resp_str) > 1000:
-                        resp_str = resp_str[:1000] + "\n... (truncated)"
-                    report += f"```json\n{resp_str}\n```\n"
-                report += "\n"
-
-        report += "</details>\n"
+        # Note about detailed results
+        report += "\n---\n\n"
+        report += "*For detailed test results, see `test_results.json` in this workspace directory.*\n"
 
         return report
 

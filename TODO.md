@@ -5,13 +5,6 @@
 ---
 
 ## Active
-- [P1] [ ] Include original document in workspace `2025-12-15`
-- [P1] [ ] Handle models asking for clarification instead of following prompt format (e.g., section_20 in document_structure test - Claude responded with "I need to clarify the context here" instead of JSON) `2025-12-11` #bug #prompt-compliance #data-quality
-- [P1] [ ] Fix Gemini JSON parsing failure (section_7 in todo.md test - looks like valid JSON but failed to parse) `2025-12-06` #bug #gemini #parsing
-- [P2] [ ] Remove "Detailed Test Results" section from report.md `2025-12-21` #optimization #context-efficiency
-  - Test results already available as test_results.json in same directory
-  - Report mainly read by AI models - detailed results waste context
-  - Keep summary, remove full test output duplication
 - [P2] [ ] Test remaining context dependency documents (abbreviations, prerequisites, cross-references, constraints, comprehensive) `2025-12-12` #testing #session-management
 
 ## Backlog
@@ -20,9 +13,13 @@
 - [P2] [ ] Make process more modular - Each step should be executable independently using artifacts from previous step (e.g., run judge on existing test_results.json, run report generation on existing ambiguities.json) to enable debugging, re-running failed steps, and testing individual components `2025-12-12` #architecture #modularity #improvement
 
 ### Increment 2 - Ambiguity Detection (Finishing)
-- [P3] [ ] Investigate Gemini timeout issues (increase timeout or simplify prompts) `2025-12-06` #bug #gemini
 - [P2] [ ] Add adversarial/red-team prompt variant `2025-12-01` #improvement #gemini-feedback
 - [P2] [ ] Flag sections where models agree but both noted same ambiguity `2025-12-06` #improvement #edge-case
+
+### Edge Cases (Return if issues recur)
+- [P3] [ ] Handle models asking for clarification instead of following prompt format (e.g., section_20 in document_structure test - Claude responded with "I need to clarify the context here" instead of JSON) `2025-12-26` #edge-case #prompt-compliance
+- [P3] [ ] Fix Gemini JSON parsing failure (section_7 in todo.md test - looks like valid JSON but failed to parse) `2025-12-26` #edge-case #gemini #parsing
+- [P3] [ ] Investigate Gemini timeout issues (increase timeout or simplify prompts) `2025-12-26` #edge-case #gemini
 
 ### Increment 3 - Fix Generation
 - [P2] [ ] Implement `fix_generator.py` with real fix strategies `2025-12-01` #increment3
@@ -41,6 +38,8 @@
 
 ## Completed
 
+- [P1] [✓] Include original document in workspace - Added shutil.copy2() to copy original document to workspace as `original_{filename}` for easy reference - Added logging and display in summary output - All 73 tests passing `2025-12-26` #ux #workspace
+- [P2] [✓] Remove "Detailed Test Results" section from report.md - Removed expandable details section with raw model responses - Replaced with simple note pointing to test_results.json - Reduces context waste (reports mainly read by AI models), removes duplication - All 73 tests passing `2025-12-26` #optimization #context-efficiency
 - [P3] [✓] Simplify test matrix to Python 3.11 only - Removed multi-version testing (3.8-3.11) for 4x faster CI - This is a personal tool, no need for broad version compatibility - PR #14 `2025-12-13` #ci #optimization
 - [P2] [✓] Fix gitignore patterns for workspace/temp/output - Changed patterns from workspace/ to **/workspace/ to match directories anywhere in tree - Fixed issue where scripts/workspace/ was not being ignored - PR #15 `2025-12-13` #bug #gitignore
 - [P2] [✓] Add mandatory git workflow check to CLAUDE.md - Added requirement to read common_rules/git_workflow.md before any git command - Added critical note to git_workflow.md header - Prevents future git mistakes `2025-12-13` #process #git
