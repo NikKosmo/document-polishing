@@ -11,10 +11,7 @@
 
 ## Backlog
 
-### Architecture Improvements
-(Moved to Active - Modular Architecture Implementation)
-
-### Increment 2 - Ambiguity Detection (Finishing)
+### Increment 2 - Ambiguity Detection (Polish)
 - [P2] [ ] Add adversarial/red-team prompt variant `2025-12-01` #improvement #gemini-feedback
 - [P2] [ ] Flag sections where models agree but both noted same ambiguity `2025-12-06` #improvement #edge-case
 

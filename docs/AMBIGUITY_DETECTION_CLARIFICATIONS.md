@@ -80,17 +80,29 @@ class Ambiguity:
 
 ---
 
-## Priority of Remaining Work
+## Implementation Status
 
-### Must fix before Increment 2 is "done":
-1. **Filter empty interpretations** - Gemini returning empty breaks comparison
-2. **Include ambiguities in judge prompt** - Using all available data
+### ✅ Completed (Increment 2)
+1. **Filter empty interpretations** - Implemented in PR #8 (2025-12-10)
+   - Filters out error responses, empty strings, whitespace-only interpretations
+   - Comprehensive test coverage in `tests/test_filter_faulty_interpretations.py`
 
-### Nice to have for Increment 2:
+2. **Include ambiguities in judge prompt** - Implemented in PR #7 (2025-12-10)
+   - Added `ambiguities` field to `_build_comparison_prompt()`
+   - Judge now receives all three ambiguity signals
+   - Test coverage in `tests/test_judge_prompt_content.py`
+
+### 📋 Remaining Work
+
+#### P2 - Polish Increment 2:
 3. **Flag agreement-with-shared-ambiguity** - Edge case, but valuable signal
+   - When models agree on interpretation but all note the same ambiguity
+   - Should flag as LOW severity (documentation has gap even if consistently interpreted)
 
-### Can wait for Increment 3:
+#### Increment 3 - Fix Generation:
 4. **Use ambiguities for fix generation** - Natural extension when building fix_generator.py
+   - Model-reported ambiguities provide valuable input for automated fixes
+   - Consider adding `model_noted_ambiguities` field to Ambiguity dataclass
 
 ---
 
