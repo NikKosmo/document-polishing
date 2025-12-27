@@ -6,14 +6,58 @@
 
 ## Active
 
+### Increment 2 - Ambiguity Detection (Polish)
+- [P2] [ ] Flag sections where models agree but both noted same ambiguity `2025-12-06` #improvement #edge-case
+
 ### Other Active Tasks
 - [P2] [ ] Test remaining context dependency documents (abbreviations, prerequisites, constraints, comprehensive) `2025-12-12` #testing #session-management
 
 ## Backlog
 
-### Increment 2 - Ambiguity Detection (Polish)
-- [P2] [ ] Add adversarial/red-team prompt variant `2025-12-01` #improvement #gemini-feedback
-- [P2] [ ] Flag sections where models agree but both noted same ambiguity `2025-12-06` #improvement #edge-case
+### Question-Based Testing Implementation (Incremental)
+**Design:** docs/QUESTION_BASED_TESTING_FRAMEWORK.md | **Approach:** Sequential pipeline (Step 5), template-only generation, positive scenario first, 70%/60% coverage targets, JSON format
+
+#### Phase 1: Core Infrastructure
+- [P2] [ ] Create Question/Answer/Evaluation dataclasses in questioning_step.py module `2025-12-27` #question-testing #phase1
+- [P2] [ ] Implement questions.json artifact format with save/load methods `2025-12-27` #question-testing #phase1 #artifacts
+- [P2] [ ] Implement answers.json artifact format `2025-12-27` #question-testing #phase1 #artifacts
+- [P2] [ ] Implement question_results.json artifact format `2025-12-27` #question-testing #phase1 #artifacts
+
+#### Phase 2: Template Library & Section-Level Generation
+- [P2] [ ] Create JSON template library (10-15 templates: factual, procedural, conditional) `2025-12-27` #question-testing #phase2
+- [P2] [ ] Implement testable element extraction (requirements, steps, conditionals, constraints) `2025-12-27` #question-testing #phase2
+- [P2] [ ] Implement template application logic for section-level questions `2025-12-27` #question-testing #phase2
+- [P2] [ ] Implement question validation (answerable, grammatical, single concept) `2025-12-27` #question-testing #phase2
+- [P2] [ ] Add section coverage metrics (target: 70%) `2025-12-27` #question-testing #phase2 #metrics
+
+#### Phase 3: Document-Level Questions
+- [P2] [ ] Build dependency graph from section cross-references `2025-12-27` #question-testing #phase3
+- [P2] [ ] Identify potential conflict pairs between sections `2025-12-27` #question-testing #phase3
+- [P2] [ ] Generate document-level questions (5-10 key questions: dependencies, conflicts, workflow) `2025-12-27` #question-testing #phase3
+- [P2] [ ] Add element coverage metrics (target: 60%) `2025-12-27` #question-testing #phase3 #metrics
+
+#### Phase 4: Answer Collection & Evaluation
+- [P2] [ ] Implement model querying for questions (reuse session management) `2025-12-27` #question-testing #phase4
+- [P2] [ ] Create LLM-as-Judge evaluation prompts `2025-12-27` #question-testing #phase4
+- [P2] [ ] Implement judge response parsing (correct/partially_correct/incorrect/unanswerable) `2025-12-27` #question-testing #phase4
+- [P2] [ ] Implement consensus calculation and issue detection `2025-12-27` #question-testing #phase4
+- [P2] [ ] Convert QuestionResults to Ambiguity objects with severity mapping `2025-12-27` #question-testing #phase4
+
+#### Phase 5: Integration & CLI
+- [P2] [ ] Create questioning_step.py module (QuestioningStep class with generate/collect/evaluate) `2025-12-27` #question-testing #phase5 #modular
+- [P2] [ ] Create CLI script: test_questions.py (generate, test, evaluate, auto commands) `2025-12-27` #question-testing #phase5 #cli
+- [P2] [ ] Integrate questioning step into polish.py (after detection step) `2025-12-27` #question-testing #phase5 #integration
+- [P2] [ ] Add question testing results to report.md (summary, issues, coverage) `2025-12-27` #question-testing #phase5 #reporting
+- [P2] [ ] Add enable_question_testing config option `2025-12-27` #question-testing #phase5 #config
+
+#### Phase 6: Adversarial Testing (Later - Separate Increment)
+- [P2] [ ] Add adversarial templates (trick questions, edge cases, false premises) `#question-testing #adversarial #future
+- [P2] [ ] Implement adversarial generation patterns `#question-testing #adversarial #future
+- [P2] [ ] Implement adversarial evaluation criteria (passed/failed, failure modes) `#question-testing #adversarial #future
+- [P2] [ ] Add adversarial pass rate metrics `#question-testing #adversarial #future
+
+### Increment 2 - Other Polish Tasks
+- [P2] [ ] Add adversarial/red-team prompt variant for interpretation testing `2025-12-01` #improvement #gemini-feedback
 
 ### Edge Cases (Return if issues recur)
 - [P3] [ ] Handle models asking for clarification instead of following prompt format (e.g., section_20 in document_structure test - Claude responded with "I need to clarify the context here" instead of JSON) `2025-12-26` #edge-case #prompt-compliance
