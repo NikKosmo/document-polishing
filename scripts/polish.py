@@ -25,6 +25,13 @@ from document_processor import DocumentProcessor
 from prompt_generator import PromptGenerator
 from ambiguity_detector import AmbiguityDetector, Severity, JudgeFailureError
 
+# Import step modules
+from extraction_step import ExtractionStep
+from session_init_step import SessionInitStep
+from testing_step import TestingStep
+from detection_step import DetectionStep
+from reporting_step import ReportingStep
+
 
 __version__ = "0.2.0"
 
@@ -158,10 +165,16 @@ class DocumentPolisher:
         # Step 1: Extract sections
         print("Step 1: Extracting testable sections...")
         self._log("Step 1: Extracting testable sections...")
-        sections = self.processor.extract_sections()
+        extraction_step = ExtractionStep(str(self.document_path))
+        extraction_result = extraction_step.extract()
+        sections = extraction_result.sections
+
+        # Save extraction result
+        extraction_result.save(str(self.workspace / "sections.json"))
+
         print(f"  Found {len(sections)} sections")
         self._log(f"Found {len(sections)} sections")
-        for i, summary in enumerate(self.processor.get_section_summary()):
+        for summary in extraction_result.summary:
             print(f"  {summary}")
 
         if len(sections) == 0:
@@ -169,54 +182,70 @@ class DocumentPolisher:
             return
 
         # Step 1.5: Initialize sessions (if enabled)
+        session_init_result = None
         if self.model_manager.sessions_enabled():
             print(f"\nStep 1.5: Initializing model sessions with document context...")
             self._log("Step 1.5: Initializing model sessions...")
-            document_content = self.processor.get_full_content()
             purpose_prompt = self.session_config.get(
                 "purpose_prompt",
                 "This document defines standards and requirements. Please analyze sections within this context."
             )
-            session_results = self.model_manager.init_sessions(
-                document=document_content,
-                purpose=purpose_prompt,
-                model_names=models
+            session_init_step = SessionInitStep(
+                self.config['models'],
+                self.session_config
             )
-            self._log(f"Sessions initialized: {len(session_results)} of {len(models)} models")
+            session_init_result = session_init_step.init_sessions(
+                extraction_result.document_content,
+                models,
+                purpose_prompt
+            )
+            # Transfer session manager to model_manager
+            self.model_manager.session_manager = session_init_result.session_manager
+
+            # Save session metadata
+            session_init_result.save(str(self.workspace / "session_metadata.json"))
+            self._log(f"Sessions initialized: {len(session_init_result.session_ids)} of {len(models)} models")
         else:
             self._log("Session management disabled, using stateless mode")
 
         # Step 2: Test sections with models
         print(f"\nStep 2: Testing sections with models...")
         self._log("Step 2: Testing sections with models...")
-        test_results = {}
+        testing_step = TestingStep(
+            self.config['models'],
+            self.session_config,
+            self.model_manager.session_manager if session_init_result else None
+        )
 
         for i, section in enumerate(sections):
             print(f"\n  Testing section [{i}]: {section['header']}")
             self._log(f"Testing section [{i}]: {section['header']}")
-            prompt = self.prompt_gen.create_interpretation_prompt(section)
 
-            # Query all models
-            results = self.model_manager.query_all(prompt, models)
-            self._log(f"Section [{i}] completed - queried {len(results)} models")
-            test_results[f"section_{i}"] = {
-                'section': section,
-                'results': results
-            }
+        testing_result = testing_step.test_sections(
+            sections,
+            models,
+            use_sessions=(session_init_result is not None)
+        )
+        test_results = testing_result.test_results
 
         # Save test results
         results_file = self.workspace / "test_results.json"
-        with open(results_file, 'w') as f:
-            json.dump(test_results, f, indent=2, default=str)
+        testing_result.save(str(results_file))
         print(f"\n  Test results saved to: {results_file}")
 
-        # Step 3: Detect ambiguities using ambiguity_detector module
+        # Step 3: Detect ambiguities
         print(f"\nStep 3: Detecting ambiguities...")
         self._log("Step 3: Detecting ambiguities...")
-        detector = self._create_ambiguity_detector()
-        
+        detection_step = DetectionStep(
+            strategy='llm_judge',
+            judge_model=self.judge_model,
+            models_config=self.config['models'],
+            workspace=self.workspace
+        )
+
         try:
-            ambiguities = detector.detect(test_results)
+            detection_result = detection_step.detect(test_results)
+            ambiguities = detection_result.ambiguities
         except JudgeFailureError as e:
             # Fail-fast: Judge failure means we cannot proceed with valid results
             error_msg = f"ERROR: {e}"
@@ -230,15 +259,15 @@ class DocumentPolisher:
             print(f"\nStopping polish process - cannot proceed without valid judge comparisons.")
             print(f"See logs at: {self.log_file}")
             print(f"{'='*60}\n")
-            
+
             self._log(error_msg)
             self._log(f"Judge failure - aborting polish process")
-            
+
             # Cleanup sessions before exit
             if self.model_manager.has_active_sessions():
                 self.model_manager.cleanup_sessions()
                 self._log("Sessions cleaned up")
-            
+
             # Return error result instead of continuing with bogus data
             return {
                 'workspace': str(self.workspace),
@@ -248,40 +277,46 @@ class DocumentPolisher:
                 'error': str(e),
                 'error_type': 'judge_failure'
             }
-        
+
         print(f"  Found {len(ambiguities)} potential ambiguities")
         self._log(f"Found {len(ambiguities)} potential ambiguities")
 
         # Print summary by severity
-        severity_counts = {}
-        for amb in ambiguities:
-            sev = amb.severity.value
-            severity_counts[sev] = severity_counts.get(sev, 0) + 1
-
-        if severity_counts:
-            print(f"  Breakdown: {', '.join(f'{k}: {v}' for k, v in severity_counts.items())}")
+        if detection_result.severity_counts:
+            print(f"  Breakdown: {', '.join(f'{k}: {v}' for k, v in detection_result.severity_counts.items())}")
 
         # Save ambiguities
         ambiguities_file = self.workspace / "ambiguities.json"
-        with open(ambiguities_file, 'w') as f:
-            json.dump([a.to_dict() for a in ambiguities], f, indent=2)
+        detection_result.save(str(ambiguities_file))
         print(f"  Ambiguities saved to: {ambiguities_file}")
 
         # Step 4: Generate report
         print(f"\nStep 4: Generating report...")
         self._log("Step 4: Generating report...")
-        report = self._generate_report(test_results, ambiguities)
+        reporting_step = ReportingStep(
+            self.session_id,
+            str(self.document_path),
+            self.judge_model
+        )
+        report_content = reporting_step.generate_report(
+            test_results,
+            ambiguities,
+            models
+        )
 
         report_file = self.workspace / "report.md"
         with open(report_file, 'w') as f:
-            f.write(report)
+            f.write(report_content)
         print(f"  Report saved to: {report_file}")
         self._log(f"Report saved to: {report_file}")
 
         # Step 5: Create polished version (if ambiguities found)
         if ambiguities:
             print(f"\nStep 5: Creating polished version...")
-            polished_content = self._create_polished_version(ambiguities)
+            polished_content = reporting_step.generate_polished_document(
+                extraction_result.document_content,
+                ambiguities
+            )
 
             polished_file = self.workspace / f"{self.document_path.stem}_polished.md"
             with open(polished_file, 'w') as f:

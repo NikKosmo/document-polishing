@@ -5,12 +5,14 @@
 ---
 
 ## Active
-- [P2] [ ] Test remaining context dependency documents (abbreviations, prerequisites, cross-references, constraints, comprehensive) `2025-12-12` #testing #session-management
+
+### Other Active Tasks
+- [P2] [ ] Test remaining context dependency documents (abbreviations, prerequisites, constraints, comprehensive) `2025-12-12` #testing #session-management
 
 ## Backlog
 
 ### Architecture Improvements
-- [P2] [ ] Make process more modular - Each step should be executable independently using artifacts from previous step (e.g., run judge on existing test_results.json, run report generation on existing ambiguities.json) to enable debugging, re-running failed steps, and testing individual components `2025-12-12` #architecture #modularity #improvement
+(Moved to Active - Modular Architecture Implementation)
 
 ### Increment 2 - Ambiguity Detection (Finishing)
 - [P2] [ ] Add adversarial/red-team prompt variant `2025-12-01` #improvement #gemini-feedback
@@ -38,6 +40,7 @@
 
 ## Completed
 
+- [P2] [✓] Modular Architecture Implementation - Created 5 step modules (extraction_step.py, session_init_step.py, testing_step.py, detection_step.py, reporting_step.py ~1,200 LOC), 5 CLI scripts (extract_sections.py, test_sections.py, detect_ambiguities.py, generate_report.py, init_sessions.py), refactored polish.py to use modules (~200 lines moved), created TEST_MODULAR_ARCHITECTURE.md - Enables debug workflows (re-run detection without model queries), iterative development (modify prompts, re-test), prepares for Increment 3 - All 73 tests passing, full backward compatibility maintained - New artifacts: sections.json, session_metadata.json - PR #22 `2025-12-27` #architecture #modularity #refactoring
 - [P0] [✓] Fix critical gitignore failures discovered during PR #20 - **Root cause: Inline comments in .gitignore treated as literal pattern** - Pattern `SESSION_LOG.md      # comment` matched file "SESSION_LOG.md      # comment" (with spaces+comment), not actual file "SESSION_LOG.md" - In .gitignore, `#` only starts comment at line beginning, mid-line `#` is literal - **Fix: Moved all inline comments to separate lines** - All 4 issues traced to same root cause: (1) SESSION_LOG.md pattern had trailing spaces+comment, (2) workspace/** pattern had trailing spaces+comment, (3) CI was actually working correctly (patterns genuinely broken), (4) PyCharm correctly showed as non-ignored - **Investigation: Dual analysis (Claude Explore agent + Codex CLI)** independently confirmed same root cause - **Verification: All patterns now work** - git check-ignore returns exit 0, patterns match correctly, files properly ignored - PR #21 `2025-12-26` #critical #gitignore #investigation
 - [P1] [✓] Include original document in workspace - Added shutil.copy2() to copy original document to workspace as `original_{filename}` for easy reference - Added logging and display in summary output - All 73 tests passing `2025-12-26` #ux #workspace
 - [P2] [✓] Remove "Detailed Test Results" section from report.md - Removed expandable details section with raw model responses - Replaced with simple note pointing to test_results.json - Reduces context waste (reports mainly read by AI models), removes duplication - All 73 tests passing `2025-12-26` #optimization #context-efficiency
