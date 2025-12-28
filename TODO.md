@@ -7,7 +7,7 @@
 ## Active
 
 ### Increment 2 - Ambiguity Detection (Polish)
-- [P2] [ ] Flag sections where models agree but both noted same ambiguity `2025-12-06` #improvement #edge-case
+- [P3] [ ] Review shared ambiguity severity calculation: should it use total participating models or only models that noted ambiguities? (Currently uses total participating models) `2025-12-28` #improvement #edge-case
 
 ### Other Active Tasks
 - [P2] [ ] Test remaining context dependency documents (abbreviations, prerequisites, constraints, comprehensive) `2025-12-12` #testing #session-management
@@ -81,6 +81,7 @@
 
 ## Completed
 
+- [P2] [✓] Flag sections where models agree but both noted same ambiguity - Implemented shared ambiguity detection using LLM judge semantic understanding (not keyword matching) - Updated judge prompt to ask about shared concerns, added shared_ambiguities/shared_concerns fields to response, added third detection condition - Severity: MEDIUM for ≥3 models, LOW otherwise - Created 7 comprehensive tests - All 80 tests passing (73 original + 7 new) - 41 lines added to production code - Codex review: Approved with minor suggestions - PR #TBD `2025-12-28` #improvement #edge-case #llm-judge
 - [P2] [✓] Modular Architecture Implementation - Created 5 step modules (extraction_step.py, session_init_step.py, testing_step.py, detection_step.py, reporting_step.py ~1,200 LOC), 5 CLI scripts (extract_sections.py, test_sections.py, detect_ambiguities.py, generate_report.py, init_sessions.py), refactored polish.py to use modules (~200 lines moved), created TEST_MODULAR_ARCHITECTURE.md - Enables debug workflows (re-run detection without model queries), iterative development (modify prompts, re-test), prepares for Increment 3 - All 73 tests passing, full backward compatibility maintained - New artifacts: sections.json, session_metadata.json - PR #22 `2025-12-27` #architecture #modularity #refactoring
 - [P0] [✓] Fix critical gitignore failures discovered during PR #20 - **Root cause: Inline comments in .gitignore treated as literal pattern** - Pattern `SESSION_LOG.md      # comment` matched file "SESSION_LOG.md      # comment" (with spaces+comment), not actual file "SESSION_LOG.md" - In .gitignore, `#` only starts comment at line beginning, mid-line `#` is literal - **Fix: Moved all inline comments to separate lines** - All 4 issues traced to same root cause: (1) SESSION_LOG.md pattern had trailing spaces+comment, (2) workspace/** pattern had trailing spaces+comment, (3) CI was actually working correctly (patterns genuinely broken), (4) PyCharm correctly showed as non-ignored - **Investigation: Dual analysis (Claude Explore agent + Codex CLI)** independently confirmed same root cause - **Verification: All patterns now work** - git check-ignore returns exit 0, patterns match correctly, files properly ignored - PR #21 `2025-12-26` #critical #gitignore #investigation
 - [P1] [✓] Include original document in workspace - Added shutil.copy2() to copy original document to workspace as `original_{filename}` for easy reference - Added logging and display in summary output - All 73 tests passing `2025-12-26` #ux #workspace

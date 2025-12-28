@@ -165,6 +165,14 @@ class ReportingStep:
                     if key_diffs:
                         report += f"- Key differences: {', '.join(key_diffs)}\n"
 
+                    # Show shared concerns if present
+                    if amb.comparison_details.get('reason') == 'Models agreed but all noted similar concerns':
+                        shared_concerns = amb.comparison_details.get('shared_concerns', [])
+                        if shared_concerns:
+                            report += f"\n**Shared Concerns:**\n"
+                            for concern in shared_concerns:
+                                report += f"- {concern}\n"
+
                 report += "\n---\n\n"
 
         # Note about detailed results
