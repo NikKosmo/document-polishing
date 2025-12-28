@@ -6,29 +6,49 @@
 
 ## Active
 
-### Increment 2 - Ambiguity Detection (Polish)
-- [P3] [ ] Review shared ambiguity severity calculation: should it use total participating models or only models that noted ambiguities? (Currently uses total participating models) `2025-12-28` #improvement #edge-case
+### Pipeline Architecture
+- [P1] [ ] Fix half-step numbering across entire pipeline `2025-12-28` #architecture #refactor #clarity
+  - **Problem**: Current steps use confusing decimal numbering (Step 1.5, Step 4-5) that makes sequence unclear
+  - **Current state**: Step 1 (Extraction), Step 1.5 (Session Init), Step 2 (Testing), Step 3 (Detection), Step 4-5 (Reporting)
+  - **Target state**: Step 1 (Extraction), Step 2 (Session Init), Step 3 (Testing), Step 4 (Detection), Step 5 (Questioning), Step 6 (Reporting)
+  - **Files to update**:
+    - `scripts/src/session_init_step.py` - docstring "Step 1.5" → "Step 2"
+    - `scripts/src/testing_step.py` - docstring "Step 2" → "Step 3"
+    - `scripts/src/detection_step.py` - docstring "Step 3" → "Step 4"
+    - `scripts/src/reporting_step.py` - docstring "Step 4-5" → "Step 6"
+    - `scripts/src/questioning_step.py` - new file, "Step 5" (or just "Questioning Step")
+    - `docs/QUESTION_BASED_TESTING_FRAMEWORK.md` - update pipeline diagrams
+    - Any other references in comments/docs
+  - **Testing**: All existing tests should pass, no functional changes
+  - **Benefit**: Clear, unambiguous step sequence
+
+### Question-Based Testing Implementation - Phase 1 & 2 ✅ COMPLETE
+**Plan:** temp/QUESTION_TESTING_PHASE1_PHASE2_PLAN.md | **Codex Review:** Approved | **Step:** 5 (after Detection Step 4, before Reporting Step 6)
+**Approach:** Standalone CLI tool (Phase 2), template-only (14 templates), 8 regex patterns, 70% section / 60% element coverage, expected_answer as Dict
+**Deliverables:** questioning_step.py (~1000 LOC), generate_questions.py (~300 LOC), question_templates.json (14 templates), test_questioning_step.py (47 tests, 85% coverage), REGEX_LIMITATIONS_FOR_QUESTION_GENERATION.md
+
+#### Phase 1: Core Infrastructure ✅ COMPLETE
+- [P2] [✓] Create Question/Answer/Evaluation dataclasses in questioning_step.py module (expected_answer as Dict) - All dataclasses implemented with validation, to_dict/from_dict methods `2025-12-28` #question-testing #phase1
+- [P2] [✓] Implement questions.json artifact format with save/load methods - UTF-8, 2-space indent, ensure_ascii=False, tested round-trip `2025-12-28` #question-testing #phase1 #artifacts
+- [P2] [✓] Implement answers.json artifact format (stub for Phase 4) - QuestionAnswer dataclass ready for Phase 4 `2025-12-28` #question-testing #phase1 #artifacts
+- [P2] [✓] Implement question_results.json artifact format (stub for Phase 4) - QuestionResult dataclass ready for Phase 4 `2025-12-28` #question-testing #phase1 #artifacts
+
+#### Phase 2: Template Library & Section-Level Generation ✅ COMPLETE
+- [P2] [✓] Create JSON template library (14 templates: 5 categories) at scripts/templates/question_templates.json - Factual (4), Procedural (3), Conditional (3), Quantitative (2), Existence (2) `2025-12-28` #question-testing #phase2
+- [P2] [✓] Implement testable element extraction (8 regex patterns) - Steps, Requirements, Conditionals, Outputs, Inputs, Constraints, Defaults, Exceptions `2025-12-28` #question-testing #phase2
+- [P2] [✓] Implement template application logic for section-level questions - Template matching, slot filling, diversity selection `2025-12-28` #question-testing #phase2
+- [P2] [✓] Implement question validation (4 rules: answerable, no leakage, grammatical, single concept) - All rules implemented with comprehensive tests `2025-12-28` #question-testing #phase2
+- [P2] [✓] Add coverage metrics (section: 70%, element: 60%) - Coverage calculation and selection logic implemented `2025-12-28` #question-testing #phase2 #metrics
+- [P2] [✓] Create CLI script: generate_questions.py (generate, validate, coverage commands) - 3 commands with formatted output `2025-12-28` #question-testing #phase2 #cli
+- [P2] [✓] Create comprehensive test suite (tests/test_questioning_step.py, ≥85% coverage) - 47 tests, 85% coverage, all 127 project tests passing `2025-12-28` #question-testing #phase2 #testing
+- [P2] [✓] Document regex limitations and patterns for future document_structure.md update - Created temp/REGEX_LIMITATIONS_FOR_QUESTION_GENERATION.md with recommendations `2025-12-28` #question-testing #phase2 #docs
 
 ### Other Active Tasks
 - [P2] [ ] Test remaining context dependency documents (abbreviations, prerequisites, constraints, comprehensive) `2025-12-12` #testing #session-management
 
 ## Backlog
 
-### Question-Based Testing Implementation (Incremental)
-**Design:** docs/QUESTION_BASED_TESTING_FRAMEWORK.md | **Approach:** Sequential pipeline (Step 5), template-only generation, positive scenario first, 70%/60% coverage targets, JSON format
-
-#### Phase 1: Core Infrastructure
-- [P2] [ ] Create Question/Answer/Evaluation dataclasses in questioning_step.py module `2025-12-27` #question-testing #phase1
-- [P2] [ ] Implement questions.json artifact format with save/load methods `2025-12-27` #question-testing #phase1 #artifacts
-- [P2] [ ] Implement answers.json artifact format `2025-12-27` #question-testing #phase1 #artifacts
-- [P2] [ ] Implement question_results.json artifact format `2025-12-27` #question-testing #phase1 #artifacts
-
-#### Phase 2: Template Library & Section-Level Generation
-- [P2] [ ] Create JSON template library (10-15 templates: factual, procedural, conditional) `2025-12-27` #question-testing #phase2
-- [P2] [ ] Implement testable element extraction (requirements, steps, conditionals, constraints) `2025-12-27` #question-testing #phase2
-- [P2] [ ] Implement template application logic for section-level questions `2025-12-27` #question-testing #phase2
-- [P2] [ ] Implement question validation (answerable, grammatical, single concept) `2025-12-27` #question-testing #phase2
-- [P2] [ ] Add section coverage metrics (target: 70%) `2025-12-27` #question-testing #phase2 #metrics
+### Question-Based Testing Implementation - Phase 3+
 
 #### Phase 3: Document-Level Questions
 - [P2] [ ] Build dependency graph from section cross-references `2025-12-27` #question-testing #phase3
@@ -81,6 +101,7 @@
 
 ## Completed
 
+- [P3] [✓] Review shared ambiguity severity calculation: should it use total participating models or only models that noted ambiguities? (Currently uses total participating models) - Confirmed current implementation is correct - Total model count represents sample size for consensus `2025-12-28` #improvement #edge-case
 - [P2] [✓] Flag sections where models agree but both noted same ambiguity - Implemented shared ambiguity detection using LLM judge semantic understanding (not keyword matching) - Updated judge prompt to ask about shared concerns, added shared_ambiguities/shared_concerns fields to response, added third detection condition - Severity: MEDIUM for ≥3 models, LOW otherwise - Created 7 comprehensive tests - All 80 tests passing (73 original + 7 new) - 41 lines added to production code - Codex review: Approved with minor suggestions - PR #TBD `2025-12-28` #improvement #edge-case #llm-judge
 - [P2] [✓] Modular Architecture Implementation - Created 5 step modules (extraction_step.py, session_init_step.py, testing_step.py, detection_step.py, reporting_step.py ~1,200 LOC), 5 CLI scripts (extract_sections.py, test_sections.py, detect_ambiguities.py, generate_report.py, init_sessions.py), refactored polish.py to use modules (~200 lines moved), created TEST_MODULAR_ARCHITECTURE.md - Enables debug workflows (re-run detection without model queries), iterative development (modify prompts, re-test), prepares for Increment 3 - All 73 tests passing, full backward compatibility maintained - New artifacts: sections.json, session_metadata.json - PR #22 `2025-12-27` #architecture #modularity #refactoring
 - [P0] [✓] Fix critical gitignore failures discovered during PR #20 - **Root cause: Inline comments in .gitignore treated as literal pattern** - Pattern `SESSION_LOG.md      # comment` matched file "SESSION_LOG.md      # comment" (with spaces+comment), not actual file "SESSION_LOG.md" - In .gitignore, `#` only starts comment at line beginning, mid-line `#` is literal - **Fix: Moved all inline comments to separate lines** - All 4 issues traced to same root cause: (1) SESSION_LOG.md pattern had trailing spaces+comment, (2) workspace/** pattern had trailing spaces+comment, (3) CI was actually working correctly (patterns genuinely broken), (4) PyCharm correctly showed as non-ignored - **Investigation: Dual analysis (Claude Explore agent + Codex CLI)** independently confirmed same root cause - **Verification: All patterns now work** - git check-ignore returns exit 0, patterns match correctly, files properly ignored - PR #21 `2025-12-26` #critical #gitignore #investigation
