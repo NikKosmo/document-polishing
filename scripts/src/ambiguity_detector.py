@@ -345,12 +345,18 @@ query_func: Function that takes a prompt string and returns model response dict
 
 Do these interpretations describe the same understanding?
 
+**ALSO:** Even if the interpretations agree, check if the models noted similar
+ambiguities or concerns about the documentation. If 2+ models questioned the
+same thing (even with different wording), that indicates a real documentation gap.
+
 Respond with JSON only:
 {{
 "agree": true/false,
 "similarity": 0.0-1.0,
 "explanation": "brief explanation of agreement or differences",
-"key_differences": ["difference 1", "difference 2"] or []
+"key_differences": ["difference 1", "difference 2"] or [],
+"shared_ambiguities": true/false,
+"shared_concerns": ["concern 1", "concern 2"] or []
 }}
             """
         return prompt
@@ -395,7 +401,9 @@ Respond with JSON only:
             'similarity': float(response.get('similarity', 0.5)),
             'details': response.get('explanation', ''),
             'groups': groups,
-            'key_differences': response.get('key_differences', [])
+            'key_differences': response.get('key_differences', []),
+            'shared_ambiguities': response.get('shared_ambiguities', False),
+            'shared_concerns': response.get('shared_concerns', [])
         }
 
 
@@ -502,6 +510,27 @@ List of detected Ambiguity objects
                                        comparison_details={
                                            **comparison,
                                            'reason': 'Models agreed but made assumptions'
+                                       }
+                                   ))
+
+            # Also flag sections where models noted similar ambiguities
+            elif comparison.get('shared_ambiguities'):
+                shared_concerns = comparison.get('shared_concerns', [])
+                # TODO: Consider whether severity should be based on len(interpretations)
+                # (total models participating) or number of models that actually noted
+                # ambiguities. Current approach uses total participating models.
+                severity = Severity.MEDIUM if len(interpretations) >= 3 else Severity.LOW
+
+                ambiguities.append(Ambiguity(
+                                       section_id=section_id,
+                                       section_header=section.get('header', 'Unknown'),
+                                       section_content=section.get('content', ''),
+                                       severity=severity,
+                                       interpretations=interpretations,
+                                       comparison_details={
+                                           **comparison,
+                                           'reason': 'Models agreed but all noted similar concerns',
+                                           'shared_concerns': shared_concerns
                                        }
                                    ))
 
