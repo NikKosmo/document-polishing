@@ -1,0 +1,287 @@
+{
+  "version": "1.0.0",
+  "description": "Template library for question-based testing framework",
+  "templates": [
+    {
+      "template_id": "factual_format_01",
+      "category": "factual",
+      "difficulty": "basic",
+      "question_pattern": "According to the {section_title} section, what format should the {element_text} use?",
+      "answer_extraction": {
+        "keywords": ["format", "formatted", "formatting"],
+        "context_window": 2,
+        "confidence_threshold": "high"
+      },
+      "triggers": {
+        "element_types": ["requirement", "constraint", "output"],
+        "required_keywords": ["format", "formatted as", "must be formatted"]
+      },
+      "validation_hints": {
+        "answer_should_contain": ["format"],
+        "answer_should_not_contain": ["question", "what", "should"]
+      }
+    },
+    {
+      "template_id": "factual_value_01",
+      "category": "factual",
+      "difficulty": "basic",
+      "question_pattern": "What is the {attribute} for {element_text}?",
+      "answer_extraction": {
+        "keywords": ["value", "set to", "equals", "is"],
+        "context_window": 2,
+        "confidence_threshold": "high"
+      },
+      "triggers": {
+        "element_types": ["default", "constraint"],
+        "required_keywords": ["default", "defaults to", "set to", "value"]
+      },
+      "validation_hints": {
+        "answer_should_contain": [],
+        "answer_should_not_contain": ["question", "what"]
+      }
+    },
+    {
+      "template_id": "factual_location_01",
+      "category": "factual",
+      "difficulty": "intermediate",
+      "question_pattern": "Where should the {element_text} be located?",
+      "answer_extraction": {
+        "keywords": ["in", "at", "located", "placed", "stored"],
+        "context_window": 3,
+        "confidence_threshold": "medium"
+      },
+      "triggers": {
+        "element_types": ["output", "input", "requirement"],
+        "required_keywords": ["directory", "folder", "path", "file", "location"]
+      },
+      "validation_hints": {
+        "answer_should_contain": ["directory", "folder", "path", "file"],
+        "answer_should_not_contain": ["where", "located"]
+      }
+    },
+    {
+      "template_id": "factual_specification_01",
+      "category": "factual",
+      "difficulty": "intermediate",
+      "question_pattern": "According to the documentation, what are the specifications for {element_text}?",
+      "answer_extraction": {
+        "keywords": ["must", "should", "required", "specification"],
+        "context_window": 3,
+        "confidence_threshold": "medium"
+      },
+      "triggers": {
+        "element_types": ["requirement", "constraint", "output"],
+        "required_keywords": ["must", "required", "specification", "spec"]
+      },
+      "validation_hints": {
+        "answer_should_contain": [],
+        "answer_should_not_contain": ["what are", "specifications"]
+      }
+    },
+    {
+      "template_id": "procedural_order_01",
+      "category": "procedural",
+      "difficulty": "basic",
+      "question_pattern": "What is the first step in {element_text}?",
+      "answer_extraction": {
+        "keywords": ["first", "step 1", "initially", "begin"],
+        "context_window": 2,
+        "confidence_threshold": "high"
+      },
+      "triggers": {
+        "element_types": ["step", "procedure"],
+        "required_keywords": ["step 1", "first", "1.", "step one"]
+      },
+      "validation_hints": {
+        "answer_should_contain": ["step", "first"],
+        "answer_should_not_contain": ["what is"]
+      }
+    },
+    {
+      "template_id": "procedural_prerequisite_01",
+      "category": "procedural",
+      "difficulty": "intermediate",
+      "question_pattern": "What must be completed before {element_text}?",
+      "answer_extraction": {
+        "keywords": ["before", "prerequisite", "first", "prior", "after"],
+        "context_window": 3,
+        "confidence_threshold": "medium"
+      },
+      "triggers": {
+        "element_types": ["step", "requirement"],
+        "required_keywords": ["before", "after", "prerequisite", "first", "prior to"]
+      },
+      "validation_hints": {
+        "answer_should_contain": [],
+        "answer_should_not_contain": ["what must", "before"]
+      }
+    },
+    {
+      "template_id": "procedural_sequence_01",
+      "category": "procedural",
+      "difficulty": "advanced",
+      "question_pattern": "In what order should the following steps be performed: {element_text}?",
+      "answer_extraction": {
+        "keywords": ["order", "sequence", "then", "next", "step"],
+        "context_window": 5,
+        "confidence_threshold": "medium"
+      },
+      "triggers": {
+        "element_types": ["step", "procedure"],
+        "required_keywords": ["step", "then", "next", "order"]
+      },
+      "validation_hints": {
+        "answer_should_contain": ["step", "order", "first", "then"],
+        "answer_should_not_contain": ["what order"]
+      }
+    },
+    {
+      "template_id": "conditional_if_when_01",
+      "category": "conditional",
+      "difficulty": "intermediate",
+      "question_pattern": "Under what conditions should {element_text} be performed?",
+      "answer_extraction": {
+        "keywords": ["if", "when", "condition", "case", "unless"],
+        "context_window": 3,
+        "confidence_threshold": "medium"
+      },
+      "triggers": {
+        "element_types": ["conditional", "requirement"],
+        "required_keywords": ["if", "when", "unless", "in case", "condition"]
+      },
+      "validation_hints": {
+        "answer_should_contain": ["if", "when"],
+        "answer_should_not_contain": ["under what conditions"]
+      }
+    },
+    {
+      "template_id": "conditional_alternative_01",
+      "category": "conditional",
+      "difficulty": "intermediate",
+      "question_pattern": "What is the alternative approach if {element_text} is not possible?",
+      "answer_extraction": {
+        "keywords": ["otherwise", "alternatively", "instead", "else", "or"],
+        "context_window": 3,
+        "confidence_threshold": "medium"
+      },
+      "triggers": {
+        "element_types": ["conditional", "exception"],
+        "required_keywords": ["otherwise", "alternatively", "instead", "else", "fallback"]
+      },
+      "validation_hints": {
+        "answer_should_contain": ["alternative", "instead", "otherwise"],
+        "answer_should_not_contain": ["what is the alternative"]
+      }
+    },
+    {
+      "template_id": "conditional_error_01",
+      "category": "conditional",
+      "difficulty": "advanced",
+      "question_pattern": "What should happen if {element_text} fails or encounters an error?",
+      "answer_extraction": {
+        "keywords": ["error", "fail", "exception", "handle", "catch"],
+        "context_window": 3,
+        "confidence_threshold": "medium"
+      },
+      "triggers": {
+        "element_types": ["exception", "conditional", "error"],
+        "required_keywords": ["error", "fail", "exception", "invalid", "incorrect"]
+      },
+      "validation_hints": {
+        "answer_should_contain": ["error", "fail", "exception"],
+        "answer_should_not_contain": ["what should happen"]
+      }
+    },
+    {
+      "template_id": "quantitative_count_01",
+      "category": "quantitative",
+      "difficulty": "basic",
+      "question_pattern": "How many {element_text} are specified in the documentation?",
+      "answer_extraction": {
+        "keywords": ["number", "count", "total", "\\d+"],
+        "context_window": 2,
+        "confidence_threshold": "high"
+      },
+      "triggers": {
+        "element_types": ["requirement", "constraint"],
+        "required_keywords": ["number", "count", "total", "multiple", "\\d+"]
+      },
+      "validation_hints": {
+        "answer_should_contain": ["\\d+"],
+        "answer_should_not_contain": ["how many"]
+      }
+    },
+    {
+      "template_id": "quantitative_limit_01",
+      "category": "quantitative",
+      "difficulty": "intermediate",
+      "question_pattern": "What is the maximum/minimum value for {element_text}?",
+      "answer_extraction": {
+        "keywords": ["maximum", "minimum", "max", "min", "limit", "at most", "at least"],
+        "context_window": 2,
+        "confidence_threshold": "high"
+      },
+      "triggers": {
+        "element_types": ["constraint", "requirement"],
+        "required_keywords": ["maximum", "minimum", "max", "min", "limit", "at most", "at least"]
+      },
+      "validation_hints": {
+        "answer_should_contain": ["\\d+", "maximum", "minimum"],
+        "answer_should_not_contain": ["what is"]
+      }
+    },
+    {
+      "template_id": "existence_mention_01",
+      "category": "existence",
+      "difficulty": "basic",
+      "question_pattern": "Does the documentation mention {element_text}?",
+      "answer_extraction": {
+        "keywords": [],
+        "context_window": 5,
+        "confidence_threshold": "low"
+      },
+      "triggers": {
+        "element_types": ["any"],
+        "required_keywords": []
+      },
+      "validation_hints": {
+        "answer_should_contain": ["yes", "no"],
+        "answer_should_not_contain": ["does"]
+      }
+    },
+    {
+      "template_id": "existence_requirement_01",
+      "category": "existence",
+      "difficulty": "intermediate",
+      "question_pattern": "Is {element_text} required according to the documentation?",
+      "answer_extraction": {
+        "keywords": ["required", "must", "mandatory", "optional"],
+        "context_window": 2,
+        "confidence_threshold": "high"
+      },
+      "triggers": {
+        "element_types": ["requirement", "constraint"],
+        "required_keywords": ["required", "must", "mandatory", "optional"]
+      },
+      "validation_hints": {
+        "answer_should_contain": ["yes", "no", "required", "optional"],
+        "answer_should_not_contain": ["is"]
+      }
+    }
+  ],
+  "metadata": {
+    "total_templates": 14,
+    "categories": {
+      "factual": 4,
+      "procedural": 3,
+      "conditional": 3,
+      "quantitative": 2,
+      "existence": 2
+    },
+    "difficulty_levels": {
+      "basic": 5,
+      "intermediate": 7,
+      "advanced": 2
+    }
+  }
+}
