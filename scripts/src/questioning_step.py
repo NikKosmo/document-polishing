@@ -432,8 +432,15 @@ class ElementExtractor:
         elements = []
 
         for section in sections:
-            section_id = section.get('section_id', '')
-            section_title = section.get('title', '')
+            # Get or generate section_id from header
+            section_id = section.get('section_id')
+            if not section_id:
+                header = section.get('header', '')
+                # Generate section_id using same slugify logic as CrossReferenceAnalyzer
+                section_id = re.sub(r'[^\w\s-]', '', header.lower())
+                section_id = re.sub(r'[-\s]+', '-', section_id).strip('-')[:50]
+
+            section_title = section.get('header', section.get('title', ''))
             content = section.get('content', '')
             start_line = section.get('start_line', 0)
 
@@ -792,14 +799,36 @@ class QuestioningStep:
         result.save('workspace/')
     """
 
-    def __init__(self, template_path: Optional[str] = None):
+    def __init__(
+        self,
+        template_path: Optional[str] = None,
+        enable_document_level: bool = True,
+        session_manager=None,
+        models_config: Optional[Dict] = None,
+        session_config: Optional[Dict] = None
+    ):
         """
         Initialize questioning step.
 
+        Session management is automatic - sessions initialized with document
+        context when collecting answers if not provided.
+
         Args:
             template_path: Path to question_templates.json (defaults to scripts/templates/)
+            enable_document_level: Enable Phase 3 document-level question generation
+            session_manager: Optional existing SessionManager (auto-created if needed)
+            models_config: Model configuration for auto session creation
+            session_config: Session configuration for auto session creation
         """
-        self.generator_version = "1.0.0-phase2"
+        self.generator_version = "1.0.0-phase5"
+        self.enable_document_level = enable_document_level
+        self.session_manager = session_manager
+        self.models_config = models_config or {}
+        self.session_config = session_config or {
+            'enabled': True,
+            'mode': 'continue-on-error',
+            'max_retries': 2
+        }
 
         # Determine template path
         if template_path is None:
@@ -811,10 +840,15 @@ class QuestioningStep:
         loader = TemplateLoader(str(template_path))
         self.templates = loader.load()
 
-        # Initialize components
+        # Initialize Phase 2 components
         self.extractor = ElementExtractor()
         self.applicator = TemplateApplicator(self.templates)
         self.validator = QuestionValidator()
+
+        # Initialize Phase 3 components
+        if self.enable_document_level:
+            self.ref_analyzer = CrossReferenceAnalyzer()
+            self.conflict_detector = ConflictDetector()
 
     def generate_questions(
         self,
@@ -886,6 +920,14 @@ class QuestioningStep:
             coverage_targets
         )
 
+        # Phase 3: Generate document-level questions (if enabled)
+        if self.enable_document_level:
+            doc_level_questions = self._generate_document_level_questions(
+                sections,
+                question_id_counter
+            )
+            selected_questions.extend(doc_level_questions)
+
         # Create result
         result = QuestioningResult(
             questions=selected_questions,
@@ -900,6 +942,169 @@ class QuestioningStep:
         result.calculate_statistics(total_sections=len(sections), total_elements=len(elements))
 
         return result
+
+    def collect_answers(
+        self,
+        questions: List[Question],
+        models: List[str],
+        document_text: str = "",
+        session_manager=None
+    ) -> Dict[str, Dict[str, QuestionAnswer]]:
+        """
+        Phase 4: Collect answers from models using sessions.
+
+        Session management is automatic - if no session_manager provided,
+        creates sessions with document context for better comprehension.
+
+        Args:
+            questions: List of Question objects
+            models: List of model names to query
+            document_text: Full document content for session initialization
+            session_manager: Optional existing SessionManager (will create if None)
+
+        Returns:
+            Dict mapping question_id -> {model_name -> QuestionAnswer}
+        """
+        # Use provided session manager or create new one
+        if session_manager is None:
+            session_manager = self._ensure_session_manager(document_text, models)
+
+        collector = AnswerCollector(session_manager)
+        return collector.collect_answers(questions, models)
+
+    def evaluate_answers(
+        self,
+        questions: List[Question],
+        answers: Dict[str, Dict[str, QuestionAnswer]],
+        sections: List[Dict[str, Any]],
+        session_manager,
+        judge_model: str = "claude"
+    ) -> Dict[str, QuestionResult]:
+        """
+        Phase 4: Evaluate answers with LLM-as-Judge and calculate consensus.
+
+        Args:
+            questions: List of Question objects
+            answers: Dict from collect_answers()
+            sections: List of section dicts (for extracting context)
+            session_manager: SessionManager for judge queries
+            judge_model: Model to use as judge
+
+        Returns:
+            Dict mapping question_id -> QuestionResult
+        """
+        evaluator = AnswerEvaluator(judge_model, session_manager)
+        calculator = ConsensusCalculator()
+
+        # Build section_id -> section lookup map
+        section_map = {}
+        for section in sections:
+            # Get section_id (either already present or generate from header)
+            section_id = section.get('section_id')
+            if not section_id and 'header' in section:
+                # Generate section_id using same slugify logic as CrossReferenceAnalyzer
+                header = section['header']
+                section_id = re.sub(r'[^\w\s-]', '', header.lower())
+                section_id = re.sub(r'[-\s]+', '-', section_id).strip('-')[:50]
+            if section_id:
+                section_map[section_id] = section
+
+        results = {}
+
+        for question in questions:
+            question_answers = answers.get(question.question_id, {})
+
+            # Extract context from question's target sections
+            context_parts = []
+            for section_id in question.target_sections:
+                if section_id in section_map:
+                    section = section_map[section_id]
+                    # Build context with header and content
+                    context_parts.append(f"## {section.get('header', section_id)}\n{section.get('content', '')}")
+
+            context = "\n\n".join(context_parts) if context_parts else ""
+
+            # Evaluate each model's answer
+            evaluations = {}
+            for model_name, answer in question_answers.items():
+                evaluation = evaluator.evaluate_answer(question, answer, context)
+                evaluations[model_name] = evaluation
+
+            # Calculate consensus
+            result = calculator.calculate_consensus(question, evaluations)
+            result.answers = question_answers  # Add answers to result
+            results[question.question_id] = result
+
+        return results
+
+    def detect_issues(
+        self,
+        results: Dict[str, QuestionResult]
+    ) -> List[Dict]:
+        """
+        Phase 4: Convert QuestionResults to ambiguity-like issues.
+
+        Args:
+            results: Dict of question_id -> QuestionResult
+
+        Returns:
+            List of issue dicts
+        """
+        calculator = ConsensusCalculator()
+        issues = []
+
+        for result in results.values():
+            issue = calculator.detect_issue(result)
+            if issue:
+                issues.append(issue)
+
+        return issues
+
+    def _ensure_session_manager(
+        self,
+        document_text: str,
+        models: List[str]
+    ):
+        """
+        Ensure session manager exists - create if needed.
+
+        Automatically initializes sessions with document context for
+        better question comprehension.
+
+        Args:
+            document_text: Full document content
+            models: List of model names
+
+        Returns:
+            SessionManager with initialized sessions
+        """
+        if self.session_manager is not None:
+            return self.session_manager
+
+        # Import here to avoid circular dependency
+        from session_init_step import SessionInitStep
+
+        # Build minimal models_config if not provided
+        if not self.models_config:
+            self.models_config = {}
+            for model in models:
+                if model not in self.models_config:
+                    self.models_config[model] = {
+                        'command': model,
+                        'timeout': 30
+                    }
+
+        # Initialize sessions with document context
+        session_init = SessionInitStep(self.models_config, self.session_config)
+        session_result = session_init.init_sessions(
+            document_content=document_text,
+            model_names=models,
+            purpose_prompt="This document is being tested for comprehension. Please analyze questions about this documentation."
+        )
+
+        # Store for reuse
+        self.session_manager = session_result.session_manager
+        return self.session_manager
 
     def _select_for_coverage(
         self,
@@ -963,6 +1168,797 @@ class QuestioningStep:
             best_section[1].pop(0)
 
         return selected
+
+    def _generate_document_level_questions(
+        self,
+        sections: List[Dict[str, Any]],
+        start_id: int
+    ) -> List[Question]:
+        """
+        Generate document-level questions using Phase 3 analysis.
+
+        Args:
+            sections: List of section dicts
+            start_id: Starting question ID number
+
+        Returns:
+            List of document-level Question objects
+        """
+        doc_questions = []
+        question_id = start_id
+
+        # Analyze cross-references and conflicts
+        ref_analysis = self.ref_analyzer.analyze_references(sections)
+        conflicts = self.conflict_detector.detect_conflicts(sections)
+
+        # Get document-level templates
+        doc_templates = [t for t in self.templates if t.get('scope') == 'document']
+
+        # Generate dependency questions
+        for source_id, target_ids in ref_analysis['dependencies'].items():
+            for target_id in target_ids:
+                # Find matching template
+                dep_template = next((t for t in doc_templates if t.get('template_id') == 'document_dependency_01'), None)
+                if dep_template:
+                    question_text = dep_template['question_pattern'].format(
+                        source_section=source_id,
+                        target_section=target_id
+                    )
+                    expected_answer = f"Complete {source_id} before {target_id}"
+
+                    question = Question(
+                        question_id=f"q_{question_id:03d}",
+                        question_text=question_text,
+                        category=dep_template['category'],
+                        difficulty=dep_template['difficulty'],
+                        scope='document',
+                        target_sections=[source_id, target_id],
+                        expected_answer={
+                            'text': expected_answer,
+                            'confidence': 'medium'
+                        },
+                        generation_method='template',
+                        template_id=dep_template['template_id'],
+                        metadata={
+                            'dependency_type': 'explicit',
+                            'source': source_id,
+                            'target': target_id
+                        }
+                    )
+                    doc_questions.append(question)
+                    question_id += 1
+
+        # Generate conflict questions
+        for conflict in conflicts:
+            if conflict['type'] == 'contradictory_requirements':
+                template = next((t for t in doc_templates if t.get('template_id') == 'document_conflict_01'), None)
+                if template:
+                    section_a, section_b = conflict['section_pair']
+                    question_text = template['question_pattern'].format(
+                        section_a=section_a,
+                        section_b=section_b,
+                        conflicting_element="requirements"
+                    )
+                    expected_answer = f"Conflict: {conflict['evidence']}"
+
+                    question = Question(
+                        question_id=f"q_{question_id:03d}",
+                        question_text=question_text,
+                        category=template['category'],
+                        difficulty=template['difficulty'],
+                        scope='document',
+                        target_sections=conflict['section_pair'],
+                        expected_answer={
+                            'text': expected_answer,
+                            'confidence': 'high'
+                        },
+                        generation_method='template',
+                        template_id=template['template_id'],
+                        metadata={
+                            'conflict_type': conflict['type'],
+                            'evidence': conflict['evidence']
+                        }
+                    )
+                    doc_questions.append(question)
+                    question_id += 1
+
+            elif conflict['type'] == 'value_conflict':
+                template = next((t for t in doc_templates if t.get('template_id') == 'document_conflict_02'), None)
+                if template and len(conflict['conflicts']) >= 2:
+                    first = conflict['conflicts'][0]
+                    second = conflict['conflicts'][1]
+                    question_text = template['question_pattern'].format(
+                        term=conflict['term'],
+                        value_a=first['value'],
+                        section_a=first['section'],
+                        value_b=second['value'],
+                        section_b=second['section']
+                    )
+                    expected_answer = conflict['evidence']
+
+                    question = Question(
+                        question_id=f"q_{question_id:03d}",
+                        question_text=question_text,
+                        category=template['category'],
+                        difficulty=template['difficulty'],
+                        scope='document',
+                        target_sections=[first['section'], second['section']],
+                        expected_answer={
+                            'text': expected_answer,
+                            'confidence': 'high'
+                        },
+                        generation_method='template',
+                        template_id=template['template_id'],
+                        metadata={
+                            'conflict_type': 'value_conflict',
+                            'term': conflict['term']
+                        }
+                    )
+                    doc_questions.append(question)
+                    question_id += 1
+
+        # Limit to 5-10 document-level questions
+        return doc_questions[:10]
+
+
+# ============================================================================
+# Phase 3: Document-Level Analysis
+# ============================================================================
+
+class CrossReferenceAnalyzer:
+    """Analyzes section cross-references to build dependency graph."""
+
+    REFERENCE_PATTERNS = {
+        'explicit': [
+            # Match "See section X" or "Section 2.1" or "see the Setup section"
+            r'(?:See|Refer to|As (?:described|shown) in)\s+(?:section\s+)?["\']?([A-Za-z0-9._\-\s]+?)["\']?\s+(?:section|for)',
+            r'(?:section|Section)\s+([A-Za-z0-9._\-]+)',
+        ],
+        'implicit': [
+            r'(?:above|previously|earlier)\s+(?:mentioned|described)',
+            r'(?:following|next|subsequent)\s+section',
+        ]
+    }
+
+    def _slugify(self, text: str) -> str:
+        """
+        Convert header to section_id (e.g., 'Step 1: Setup' → 'step-1-setup').
+
+        Args:
+            text: Header text to slugify
+
+        Returns:
+            Slugified section ID
+        """
+        # Remove special chars, lowercase, replace spaces with hyphens
+        slug = re.sub(r'[^\w\s-]', '', text.lower())
+        slug = re.sub(r'[-\s]+', '-', slug).strip('-')
+        return slug[:50]  # Limit length
+
+    def _extract_references(self, content: str, header_to_id: Dict[str, str]) -> List[str]:
+        """
+        Extract section references from content and map to section_ids.
+
+        Args:
+            content: Section content to analyze
+            header_to_id: Mapping of normalized headers to section IDs
+
+        Returns:
+            List of referenced section IDs
+        """
+        refs = set()
+
+        # Try explicit patterns first
+        for pattern in self.REFERENCE_PATTERNS['explicit']:
+            for match in re.finditer(pattern, content, re.IGNORECASE):
+                ref_text = match.group(1).strip()
+                # Normalize and look up in mapping
+                normalized = ref_text.lower()
+                if normalized in header_to_id:
+                    refs.add(header_to_id[normalized])
+                # Also try slugified version
+                slugified = self._slugify(ref_text)
+                if slugified in header_to_id:
+                    refs.add(header_to_id[slugified])
+
+        return list(refs)
+
+    def analyze_references(self, sections: List[Dict]) -> Dict[str, Any]:
+        """
+        Build dependency graph from cross-references.
+
+        Note: Sections from DocumentProcessor have 'header', 'content', 'start_line', 'end_line'.
+        We generate section_id by slugifying the header (e.g., "Step 1: Setup" → "step-1-setup")
+        and match cross-references against both section_id and original header text.
+
+        Args:
+            sections: List of section dicts from extraction
+
+        Returns:
+            Dict with dependencies, cycles, and orphans
+        """
+        # First, build section_id mapping
+        section_map = {}  # section_id -> section dict
+        header_to_id = {}  # normalized header -> section_id
+
+        for i, section in enumerate(sections):
+            # Generate section_id from header (fallback to index)
+            header = section.get('header', f'section_{i}')
+            section_id = self._slugify(header)
+
+            # Add to section dict for downstream use
+            section['section_id'] = section_id
+            section_map[section_id] = section
+
+            # Map normalized header variants for fuzzy matching
+            header_to_id[header.lower()] = section_id
+            header_to_id[section_id] = section_id
+
+        # Build dependency graph
+        dependencies = {}
+        for section_id, section in section_map.items():
+            refs = self._extract_references(section['content'], header_to_id)
+            if refs:
+                dependencies[section_id] = refs
+
+        # Detect cycles (simple DFS-based detection)
+        cycles = self._detect_cycles(dependencies)
+
+        # Detect orphans (sections with no incoming or outgoing references)
+        all_referenced = set()
+        for refs in dependencies.values():
+            all_referenced.update(refs)
+
+        orphans = [
+            sid for sid in section_map.keys()
+            if sid not in dependencies and sid not in all_referenced
+        ]
+
+        return {
+            'dependencies': dependencies,
+            'cycles': cycles,
+            'orphans': orphans,
+            'section_map': section_map
+        }
+
+    def _detect_cycles(self, dependencies: Dict[str, List[str]]) -> List[List[str]]:
+        """
+        Detect circular dependencies using DFS.
+
+        Args:
+            dependencies: Dependency graph
+
+        Returns:
+            List of cycles (each cycle is a list of section IDs)
+        """
+        cycles = []
+        visited = set()
+        rec_stack = set()
+
+        def dfs(node: str, path: List[str]):
+            if node in rec_stack:
+                # Found a cycle
+                cycle_start = path.index(node)
+                cycles.append(path[cycle_start:])
+                return
+
+            if node in visited:
+                return
+
+            visited.add(node)
+            rec_stack.add(node)
+            path.append(node)
+
+            for neighbor in dependencies.get(node, []):
+                dfs(neighbor, path[:])
+
+            rec_stack.remove(node)
+
+        for node in dependencies:
+            if node not in visited:
+                dfs(node, [])
+
+        return cycles
+
+
+class ConflictDetector:
+    """Detects potential conflicts between sections."""
+
+    CONFLICT_INDICATORS = {
+        'contradictory_requirements': [
+            ('must', 'must not'),
+            ('required', 'optional'),
+            ('always', 'never'),
+            ('should', 'should not'),
+        ],
+        'value_conflicts': [
+            # Pattern to detect same term with different values
+            r'(\w+)\s+(?:is|=|:)\s+([^\s]+)',
+        ]
+    }
+
+    def detect_conflicts(self, sections: List[Dict]) -> List[Dict]:
+        """
+        Identify potential conflicts between sections.
+
+        Args:
+            sections: List of section dicts (with section_id)
+
+        Returns:
+            List of conflict dicts with sections and evidence
+        """
+        conflicts = []
+
+        # Check for contradictory requirements
+        for i, section_a in enumerate(sections):
+            for section_b in sections[i+1:]:
+                conflict = self._check_contradiction(section_a, section_b)
+                if conflict:
+                    conflicts.append(conflict)
+
+        # Check for value conflicts (same term, different values)
+        value_conflicts = self._detect_value_conflicts(sections)
+        conflicts.extend(value_conflicts)
+
+        return conflicts
+
+    def _check_contradiction(self, section_a: Dict, section_b: Dict) -> Optional[Dict]:
+        """
+        Check if two sections have contradictory requirements.
+
+        Args:
+            section_a: First section
+            section_b: Second section
+
+        Returns:
+            Conflict dict if found, None otherwise
+        """
+        content_a = section_a['content'].lower()
+        content_b = section_b['content'].lower()
+
+        # Get section IDs with safe fallback chain
+        section_id_a = section_a.get('section_id') or section_a.get('header') or section_a.get('title', 'unknown')
+        section_id_b = section_b.get('section_id') or section_b.get('header') or section_b.get('title', 'unknown')
+
+        for positive, negative in self.CONFLICT_INDICATORS['contradictory_requirements']:
+            if positive in content_a and negative in content_b:
+                return {
+                    'type': 'contradictory_requirements',
+                    'section_pair': [section_id_a, section_id_b],
+                    'evidence': f"Section {section_id_a} contains '{positive}', Section {section_id_b} contains '{negative}'"
+                }
+            elif negative in content_a and positive in content_b:
+                return {
+                    'type': 'contradictory_requirements',
+                    'section_pair': [section_id_a, section_id_b],
+                    'evidence': f"Section {section_id_a} contains '{negative}', Section {section_id_b} contains '{positive}'"
+                }
+
+        return None
+
+    def _detect_value_conflicts(self, sections: List[Dict]) -> List[Dict]:
+        """
+        Detect cases where same term has different values across sections.
+
+        Args:
+            sections: List of section dicts
+
+        Returns:
+            List of value conflict dicts
+        """
+        conflicts = []
+        term_values = {}  # term -> [(section_id, value)]
+
+        # Extract term-value pairs from all sections
+        for section in sections:
+            # Get section ID with safe fallback chain
+            section_id = section.get('section_id') or section.get('header') or section.get('title', 'unknown')
+            content = section['content']
+
+            for pattern in self.CONFLICT_INDICATORS['value_conflicts']:
+                for match in re.finditer(pattern, content, re.IGNORECASE):
+                    term = match.group(1).lower()
+                    value = match.group(2).strip()
+
+                    if term not in term_values:
+                        term_values[term] = []
+                    term_values[term].append((section_id, value))
+
+        # Find terms with conflicting values
+        for term, values in term_values.items():
+            if len(values) > 1:
+                unique_values = set(v[1] for v in values)
+                if len(unique_values) > 1:
+                    # Conflict: same term, different values
+                    conflicts.append({
+                        'type': 'value_conflict',
+                        'term': term,
+                        'conflicts': [
+                            {'section': sid, 'value': val}
+                            for sid, val in values
+                        ],
+                        'evidence': f"Term '{term}' has conflicting values: {', '.join(unique_values)}"
+                    })
+
+        return conflicts
+
+
+# ============================================================================
+# Phase 4: Answer Collection & Evaluation
+# ============================================================================
+
+class AnswerCollector:
+    """Collects model answers to questions (reuses session management)."""
+
+    def __init__(self, session_manager):
+        """
+        Initialize answer collector.
+
+        Args:
+            session_manager: SessionManager instance for model queries
+        """
+        self.session_manager = session_manager
+
+    def collect_answers(
+        self,
+        questions: List[Question],
+        models: List[str]
+    ) -> Dict[str, Dict[str, QuestionAnswer]]:
+        """
+        Query models with questions using existing sessions.
+
+        Args:
+            questions: List of Question objects
+            models: List of model names to query
+
+        Returns:
+            Dict mapping question_id -> {model_name -> QuestionAnswer}
+        """
+        import time
+        answers = {}
+
+        for question in questions:
+            answers[question.question_id] = {}
+
+            # Build prompt
+            prompt = self._build_prompt(question)
+
+            for model in models:
+                try:
+                    start_time = time.time()
+
+                    # Query model using session
+                    response_dict = self.session_manager.query_in_session(
+                        model_name=model,
+                        prompt=prompt
+                    )
+
+                    elapsed_ms = int((time.time() - start_time) * 1000)
+
+                    # Extract response string for parsing
+                    # query_in_session returns either parsed JSON or {"raw_response": "..."}
+                    if 'raw_response' in response_dict:
+                        response_str = response_dict['raw_response']
+                    else:
+                        # Already parsed JSON, serialize it for our parser
+                        response_str = json.dumps(response_dict)
+
+                    # Parse response
+                    answer_data = self._parse_response(response_str)
+
+                    # Create QuestionAnswer
+                    answer = QuestionAnswer(
+                        question_id=question.question_id,
+                        model_name=model,
+                        answer_text=answer_data.get('answer', ''),
+                        response_time_ms=elapsed_ms,
+                        raw_response=response_str,
+                        confidence_stated=answer_data.get('confidence')
+                    )
+
+                    answers[question.question_id][model] = answer
+
+                except Exception as e:
+                    # Log error, create failed answer
+                    print(f"Error collecting answer from {model} for {question.question_id}: {e}")
+                    answers[question.question_id][model] = QuestionAnswer(
+                        question_id=question.question_id,
+                        model_name=model,
+                        answer_text=f"ERROR: {str(e)}",
+                        response_time_ms=0,
+                        raw_response="",
+                        confidence_stated="none"
+                    )
+
+        return answers
+
+    def _build_prompt(self, question: Question) -> str:
+        """
+        Build prompt for answering a question.
+
+        Args:
+            question: Question object
+
+        Returns:
+            Formatted prompt string
+        """
+        return f"""You are being tested on your comprehension of documentation.
+
+DOCUMENT CONTEXT (from previous messages in this session):
+[Already loaded via session management]
+
+QUESTION:
+{question.question_text}
+
+Provide your answer in this exact JSON format:
+{{
+  "answer": "Your answer here",
+  "confidence": "high|medium|low",
+  "reasoning": "Brief explanation of your answer"
+}}"""
+
+    def _parse_response(self, response: str) -> Dict[str, Any]:
+        """
+        Parse model response to extract answer.
+
+        Args:
+            response: Raw model response
+
+        Returns:
+            Dict with 'answer', 'confidence', 'reasoning'
+        """
+        import json
+
+        # Try to parse as JSON
+        try:
+            # Handle markdown-wrapped JSON
+            if '```json' in response:
+                start = response.find('```json') + 7
+                end = response.find('```', start)
+                json_str = response[start:end].strip()
+            elif '```' in response:
+                start = response.find('```') + 3
+                end = response.find('```', start)
+                json_str = response[start:end].strip()
+            else:
+                json_str = response.strip()
+
+            data = json.loads(json_str)
+            return data
+
+        except (json.JSONDecodeError, ValueError):
+            # Fallback: treat entire response as answer
+            return {
+                'answer': response.strip(),
+                'confidence': 'low',
+                'reasoning': 'Failed to parse JSON response'
+            }
+
+
+class AnswerEvaluator:
+    """Evaluates model answers using LLM-as-Judge."""
+
+    def __init__(self, judge_model: str = "claude", session_manager=None):
+        """
+        Initialize answer evaluator.
+
+        Args:
+            judge_model: Model to use as judge (default: claude)
+            session_manager: SessionManager for judge queries
+        """
+        self.judge_model = judge_model
+        self.session_manager = session_manager
+
+    def evaluate_answer(
+        self,
+        question: Question,
+        answer: QuestionAnswer,
+        context: str
+    ) -> QuestionEvaluation:
+        """
+        Use LLM-as-Judge to evaluate answer correctness.
+
+        Args:
+            question: Question object
+            answer: QuestionAnswer object
+            context: Section content for reference
+
+        Returns:
+            QuestionEvaluation with score and reasoning
+        """
+        # Build judge prompt
+        prompt = self._build_judge_prompt(question, answer, context)
+
+        try:
+            # Query judge model
+            response_dict = self.session_manager.query_in_session(
+                model_name=self.judge_model,
+                prompt=prompt
+            )
+
+            # Extract response string for parsing
+            if 'raw_response' in response_dict:
+                response_str = response_dict['raw_response']
+            else:
+                response_str = json.dumps(response_dict)
+
+            # Parse judge response
+            eval_data = self._parse_judge_response(response_str)
+
+            return QuestionEvaluation(
+                question_id=question.question_id,
+                model_name=answer.model_name,
+                score=eval_data.get('score', 'incorrect'),
+                reasoning=eval_data.get('reasoning', ''),
+                evidence=eval_data.get('evidence', '')
+            )
+
+        except Exception as e:
+            print(f"Error evaluating answer from {answer.model_name}: {e}")
+            return QuestionEvaluation(
+                question_id=question.question_id,
+                model_name=answer.model_name,
+                score='incorrect',
+                reasoning=f'Judge error: {str(e)}',
+                evidence=''
+            )
+
+    def _build_judge_prompt(self, question: Question, answer: QuestionAnswer, context: str) -> str:
+        """Build LLM-as-Judge prompt."""
+        return f"""You are evaluating a model's answer to a documentation comprehension question.
+
+DOCUMENTATION CONTEXT:
+{context}
+
+QUESTION:
+{question.question_text}
+
+EXPECTED ANSWER:
+{question.expected_answer['text']}
+
+MODEL'S ANSWER:
+{answer.answer_text}
+
+Evaluate the model's answer using this JSON format:
+{{
+  "score": "correct|partially_correct|incorrect|unanswerable",
+  "reasoning": "Explain why you assigned this score",
+  "evidence": "Quote from documentation supporting your evaluation"
+}}
+
+SCORING CRITERIA:
+- correct: Answer matches expected answer in meaning
+- partially_correct: Answer is incomplete or slightly off
+- incorrect: Answer contradicts expected answer
+- unanswerable: Question cannot be answered from provided context"""
+
+    def _parse_judge_response(self, response: str) -> Dict[str, Any]:
+        """Parse judge response."""
+        import json
+
+        try:
+            # Handle markdown-wrapped JSON
+            if '```json' in response:
+                start = response.find('```json') + 7
+                end = response.find('```', start)
+                json_str = response[start:end].strip()
+            elif '```' in response:
+                start = response.find('```') + 3
+                end = response.find('```', start)
+                json_str = response[start:end].strip()
+            else:
+                json_str = response.strip()
+
+            return json.loads(json_str)
+
+        except (json.JSONDecodeError, ValueError):
+            return {
+                'score': 'incorrect',
+                'reasoning': 'Failed to parse judge response',
+                'evidence': ''
+            }
+
+
+class ConsensusCalculator:
+    """Calculates consensus and detects comprehension issues."""
+
+    def calculate_consensus(
+        self,
+        question: Question,
+        evaluations: Dict[str, QuestionEvaluation]
+    ) -> QuestionResult:
+        """
+        Determine consensus across models.
+
+        Args:
+            question: Question object
+            evaluations: Dict of {model_name -> QuestionEvaluation}
+
+        Returns:
+            QuestionResult with consensus type and issue detection
+        """
+        if not evaluations:
+            return QuestionResult(
+                question=question,
+                consensus='no_data',
+                issue_detected=False
+            )
+
+        # Count scores
+        scores = [e.score for e in evaluations.values()]
+        correct_count = scores.count('correct')
+        incorrect_count = scores.count('incorrect')
+        partial_count = scores.count('partially_correct')
+        unanswerable_count = scores.count('unanswerable')
+        total = len(scores)
+
+        # Determine consensus type
+        if correct_count == total:
+            consensus = 'agreement'
+        elif correct_count >= total * 0.7:
+            consensus = 'partial_agreement'
+        elif incorrect_count == total or unanswerable_count == total:
+            consensus = 'widespread_failure'
+        else:
+            consensus = 'disagreement'
+
+        # Detect issues
+        issue_detected = False
+        issue_type = None
+        severity = None
+        recommendation = None
+
+        if consensus == 'disagreement':
+            issue_detected = True
+            issue_type = 'comprehension_divergence'
+            severity = 'MEDIUM'
+            correct_models = [m for m, e in evaluations.items() if e.score == 'correct']
+            incorrect_models = [m for m, e in evaluations.items() if e.score != 'correct']
+            recommendation = f"Models disagree: {len(correct_models)} correct, {len(incorrect_models)} incorrect. Review question clarity."
+
+        elif consensus == 'widespread_failure':
+            issue_detected = True
+            issue_type = 'unanswerable_question'
+            severity = 'HIGH'
+            recommendation = "All models failed - likely documentation gap or question issue."
+
+        return QuestionResult(
+            question=question,
+            evaluations=evaluations,
+            consensus=consensus,
+            issue_detected=issue_detected,
+            issue_type=issue_type,
+            severity=severity,
+            recommendation=recommendation
+        )
+
+    def detect_issue(self, result: QuestionResult) -> Optional[Dict]:
+        """
+        Convert QuestionResult to Ambiguity-like issue format.
+
+        Args:
+            result: QuestionResult
+
+        Returns:
+            Issue dict if comprehension problem detected, None otherwise
+        """
+        if not result.issue_detected:
+            return None
+
+        models_correct = [m for m, e in result.evaluations.items() if e.score == 'correct']
+        models_incorrect = [m for m, e in result.evaluations.items() if e.score != 'correct']
+
+        return {
+            'type': result.issue_type,
+            'severity': result.severity,
+            'question_id': result.question.question_id,
+            'question_text': result.question.question_text,
+            'target_sections': result.question.target_sections,
+            'models_correct': models_correct,
+            'models_incorrect': models_incorrect,
+            'consensus': result.consensus,
+            'recommendation': result.recommendation
+        }
 
 
 # Convenience function for simple usage

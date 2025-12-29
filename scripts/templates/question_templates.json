@@ -267,21 +267,110 @@
         "answer_should_contain": ["yes", "no", "required", "optional"],
         "answer_should_not_contain": ["is"]
       }
+    },
+    {
+      "template_id": "document_dependency_01",
+      "category": "procedural",
+      "difficulty": "advanced",
+      "scope": "document",
+      "question_pattern": "According to {source_section}, what must be completed before {target_section}?",
+      "answer_extraction": {
+        "keywords": ["before", "prerequisite", "requires", "depends on"],
+        "context_window": 3,
+        "confidence_threshold": "medium"
+      },
+      "triggers": {
+        "requires_dependency": true,
+        "min_dependency_depth": 1
+      },
+      "validation_hints": {
+        "answer_should_contain": ["section", "step", "must"],
+        "max_answer_length": 200,
+        "leakage_check_enabled": true
+      }
+    },
+    {
+      "template_id": "document_dependency_02",
+      "category": "factual",
+      "difficulty": "intermediate",
+      "scope": "document",
+      "question_pattern": "Which sections reference {target_section}?",
+      "answer_extraction": {
+        "keywords": ["see", "refer to", "described in"],
+        "context_window": 2,
+        "confidence_threshold": "high"
+      },
+      "triggers": {
+        "requires_dependency": true,
+        "has_incoming_refs": true
+      },
+      "validation_hints": {
+        "answer_should_contain": ["section"],
+        "max_answer_length": 100,
+        "leakage_check_enabled": false
+      }
+    },
+    {
+      "template_id": "document_conflict_01",
+      "category": "conditional",
+      "difficulty": "expert",
+      "scope": "document",
+      "question_pattern": "How do {section_a} and {section_b} differ in their requirements for {conflicting_element}?",
+      "answer_extraction": {
+        "keywords": ["must", "required", "should", "optional"],
+        "context_window": 3,
+        "confidence_threshold": "medium"
+      },
+      "triggers": {
+        "requires_conflict": true,
+        "conflict_type": "contradictory_requirements"
+      },
+      "validation_hints": {
+        "answer_should_contain": ["differ", "different", "conflict"],
+        "max_answer_length": 250,
+        "leakage_check_enabled": true
+      }
+    },
+    {
+      "template_id": "document_conflict_02",
+      "category": "factual",
+      "difficulty": "advanced",
+      "scope": "document",
+      "question_pattern": "What is the correct value for {term} - is it {value_a} as stated in {section_a} or {value_b} as stated in {section_b}?",
+      "answer_extraction": {
+        "keywords": ["is", "value", "correct"],
+        "context_window": 2,
+        "confidence_threshold": "high"
+      },
+      "triggers": {
+        "requires_conflict": true,
+        "conflict_type": "value_conflict"
+      },
+      "validation_hints": {
+        "answer_should_contain": ["value"],
+        "max_answer_length": 150,
+        "leakage_check_enabled": false
+      }
     }
   ],
   "metadata": {
-    "total_templates": 14,
+    "total_templates": 18,
     "categories": {
-      "factual": 4,
-      "procedural": 3,
-      "conditional": 3,
+      "factual": 6,
+      "procedural": 4,
+      "conditional": 4,
       "quantitative": 2,
       "existence": 2
     },
     "difficulty_levels": {
       "basic": 5,
-      "intermediate": 7,
-      "advanced": 2
+      "intermediate": 8,
+      "advanced": 4,
+      "expert": 1
+    },
+    "scope_levels": {
+      "section": 14,
+      "document": 4
     }
   }
 }
