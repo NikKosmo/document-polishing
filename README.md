@@ -7,6 +7,54 @@
 
 Automated tool that detects ambiguities in documentation by testing it with multiple AI models and identifying where interpretations differ.
 
+## Project Scope
+
+**Type:** Personal project for iterative documentation improvement
+**Target:** Documentation written for LLM consumption (workflows, instructions, standards)
+**Users:** Single user (document creator, polisher, consumer)
+**Goal:** Create clear, robust documentation that LLMs can follow reliably without requiring human intervention to course-correct
+
+### Use Cases
+- Instruction documents for personal LLM workflows
+- Workflow descriptions and procedures
+- Standard practices and guidelines
+- Technical documentation on specific topics
+
+**Not Intended For:**
+- Critical production applications
+- Multi-team documentation
+- Public-facing API references
+- Real-time documentation updates
+
+## Architecture
+
+### Document Lifecycle
+
+```
+SOURCE: workflow.bulky.md
+├─ Metadata (version, dates, polishing history)
+├─ Assertions (testable claims for question generation)
+└─ Content (mixed with test markers)
+
+         │
+         ├──[strip]───────► workflow.md (clean)
+         │                  └─► polish.py (ambiguity detection)
+         │                      └─► polished output
+         │
+         └──[extract]─────► assertions.json
+                            └─► generate_questions.py
+                                └─► comprehension testing
+
+FUTURE: polished + bulky ─[merge]─► updated bulky doc
+```
+
+**Key Concepts:**
+- **Bulky docs**: Source of truth with metadata and test markers
+- **Clean docs**: Stripped for LLM consumption (what models actually see)
+- **Transform pipeline**: Deterministic strip/merge operations
+- **Polishing**: Tests clean docs for comprehension issues
+- **Question testing**: Validates understanding using assertions from bulky docs
+
 ## ✅ Current Status - Increment 2 Complete
 
 ### What Works:
@@ -197,18 +245,33 @@ These will be addressed in Increments 3-4.
 - ✅ Ambiguity severity classification
 - ✅ Session management for document context
 
-### Increment 3: Fix Generation (Next)
-- [ ] Smart fix strategies
-- [ ] Multiple fix options
-- [ ] Fix application and validation
-- [ ] Iterative polishing
+### Current: Bulky-Clean Architecture (In Progress)
+**Goal:** Implement source/build system for documentation with test markers
 
-### Increment 4: Polish & Package
-- [ ] setup.py for installation
-- [ ] Enhanced error handling
-- [ ] Progress indicators
-- [ ] API model support
-- [ ] Better documentation
+**Phase 1:** Foundation (Week 1)
+- [ ] Bulky document format specification
+- [ ] Strip metadata script (bulky → clean)
+- [ ] Test round-trip conversion
+- [ ] Convert 1 example document
+
+**Phase 2:** Question Testing (Week 2-3)
+- [ ] Fix question templates (expert review recommendations)
+- [ ] Reduce answer leakage to 0%
+- [ ] Template success rate > 80%
+- [ ] Test on bulky documents
+
+**Phase 3:** Integration (Week 4)
+- [ ] Integrate questioning into polish.py as optional step
+- [ ] End-to-end workflow: bulky → strip → polish → questions
+- [ ] Update configuration for question testing
+
+**See:** `docs/question_testing/plans/BULKY_CLEAN_ARCHITECTURE_PLAN.md`
+
+### Future: Fix Generation & Merge
+- [ ] Smart fix strategies
+- [ ] Merge polishing results back to bulky docs
+- [ ] Iterative polishing workflow
+- [ ] Auto-fix where possible
 
 ## Troubleshooting
 
