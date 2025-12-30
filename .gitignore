@@ -64,6 +64,9 @@ SESSION_LOG.md
 config.local.yaml
 .env
 
+# Claude Code local settings
+.claude/
+
 # OS
 .DS_Store
 Thumbs.db
