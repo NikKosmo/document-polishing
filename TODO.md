@@ -6,6 +6,12 @@
 
 ## Active
 
+### Bulky-Clean Architecture - Week 1 (Phase 1)
+- [P1] [✓] Exercise 1: Create bulky version of git_workflow.md - Created docs/bulky/ and docs/clean/ directories, copied git_workflow.md to bulky, added @meta block (version, created, last_polished, status) and 7 assertions targeting critical/high issues found by polish.py (rule3_merge_strategy, rule3_merge_authorization, exceptions_direct_commits, exceptions_skip_review, rule1_branch_naming, hotfix_workflow, rule4_accidental_commit) - Used polish.py to find 15 real ambiguities (2 critical, 8 medium, 5 low) to base assertions on `2026-01-10` #bulky-clean #week1 #exercise1
+- [P1] [✓] Exercise 2: Build strip_metadata.py script - Created scripts/strip_metadata.py (127 lines) using line-by-line state machine (no regex), distinguishes block metadata (@meta: remove entire block) vs wrapper metadata (@assertion: remove only tags, keep content), validates no leakage + idempotency - **Bug found & fixed**: Initially treated assertions as blocks (removed content), fixed by checking if tag ends with `-->` on same line (wrapper) vs multi-line (block) - Verification: bulky (461 lines) → clean (440 lines) = original (440 lines) ✓ `2026-01-10` #bulky-clean #week1 #exercise2
+- [P1] [✓] Exercise 3: Manual question writing (1h) - **PIVOTED APPROACH**: Original git_workflow.md found to be flawed, cannot use as reliable source. New approach: (1) Research agentic AI + git/GitHub best practices from industry sources (2025 docs), (2) Interview user for workflow preferences via AskUserQuestion, (3) Generate questions that test LLM understanding of strict workflow rules, (4) Create corrected git_workflow_v2.md based on research + user preferences, (5) Test questions in 3 scenarios (cold, old doc, new doc) with Gemini + Codex - **Results**: 24 tests (4 questions × 3 scenarios × 2 models), Cold: 1/8 correct (13%), Old doc: 1/8 correct (13%), New doc: 7/8 correct (88%) - Questions successfully caught 15/16 failures in cold/old scenarios, validating bulky-clean architecture approach - **Deliverables**: temp/user_workflow_profile.md, docs/bulky/git_workflow_v2.md (8 assertions), temp/agentic_git_research.md, temp/generated_questions_based_on_workflow.md, temp/full_test_analysis.md (comprehensive 400-line analysis), temp/test_results/ (24 raw responses) `2026-01-11` #bulky-clean #week1 #exercise3
+- [P1] [✓] Exercise 4: Authoring guide - Created docs/bulky/BULKY_FORMAT_GUIDE.md (comprehensive 800+ line guide): Format reference (@meta blocks, @assertion wrappers with id/type/priority attributes), assertion writing guidelines (single concept, clear/explicit, testable, contextual), 5 detailed examples (requirement, constraint, sequence, behavior, error), workflow (write bulky → strip → test → iterate → update metadata), best practices (DOs/DON'Ts, common pitfalls), tool-agnostic design rationale (HTML comments work in any editor) - Assertion types: requirement, constraint, behavior, sequence, error - Priority levels: critical/high/medium/low with impact guidance - ID naming convention: section_concept_detail - Covers complete authoring workflow from creation to testing to iteration `2026-01-11` #bulky-clean #week1 #exercise4
+
 ### Pipeline Architecture
 - [P1] [ ] Fix half-step numbering across entire pipeline `2025-12-28` #architecture #refactor #clarity
   - **Problem**: Current steps use confusing decimal numbering (Step 1.5, Step 4-5) that makes sequence unclear
@@ -28,8 +34,21 @@
 
 ## Backlog
 
+### Bulky-Clean Architecture - Week 2-3 (Future)
+- [P2] [ ] Week 2: Question template implementation - Implement question templates for all assertion types (requirement, constraint, sequence, behavior, error), create template engine to generate questions from @assertion markers, test templates with real assertions from git_workflow.md, measure question quality (leakage, answerability, coverage) `#bulky-clean #week2 #templates
+- [P2] [ ] Week 3: Integration & validation - Wire up template engine to questioning_step.py, create validate_bulky.py script to check bulky doc format, test full pipeline (bulky → questions → LLM testing → detection), compare results with manual polish.py run, create guidelines for when to use bulky-clean vs direct polish `#bulky-clean #week3 #integration
+
 ### Question-Based Testing
 - [P2] [ ] Rework questioning step based on expert reviews - Redesign templates using @assertion markers (see docs/question_testing/), implement hybrid approach (templates 80% + LLM 20%), extend document_structure.md for testability, add Phase 3-5 tests `2025-12-29` #question-testing #rework #expert-feedback
+
+### Documentation Quality
+- [P1] [ ] Fix git_workflow.md errors - Document found to contain factual errors during Exercise 3 (e.g., Question 2 asks "When can you commit directly to main?" with answer "Only on initial repository setup" but this doesn't match the exceptions_skip_review assertion which is about PR review, not direct commits) - Review and correct all sections based on agentic AI research (temp/agentic_git_research.md) - Align with user's strict workflow: user-only merge, never skip review, always PR for hotfixes, rebase+squash default `2026-01-10` #docs #correctness #git-workflow
+
+### Usability
+- [P2] [ ] Clarify polish.py execution directory in documentation - Add clear instructions on where to run polish.py from (scripts/ vs project root), auto-detect config.yaml location, or provide better error message with example `2026-01-10` #docs #usability #ux
+
+### Project Standards
+- [P2] [ ] Enforce temp file location rule - Add check that temp files use project temp/ directory, not system /tmp/. Update AGENTS.md or project_practices.md with rule. Add validation to strip_metadata.py tests `2026-01-10` #standards #cleanup
 
 ### Increment 2 - Other Polish Tasks
 - [P2] [ ] Add adversarial/red-team prompt variant for interpretation testing `2025-12-01` #improvement #gemini-feedback

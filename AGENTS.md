@@ -1,6 +1,9 @@
+
 # Document Polishing System - Technical Guide
 
 **Version:** 0.3.0 (Active Development - Modular Architecture Complete)
+
+**Multi-project workspace:** This project is part of a larger workspace. For cross-project standards and shared rules (see `common_rules/`), consult the parent `../AGENTS.md` file.
 
 ## Purpose
 
