@@ -94,7 +94,7 @@ document_polishing/
 │   ├── archive/               # Archived early design docs
 │   ├── test/                  # Test documents and procedures
 │   └── *.md                   # Design documentation
-├── tests/                 # Automated tests (127 tests)
+├── tests/                 # Automated tests (132 tests)
 ├── rules/                 # Project-specific rule overrides
 └── temp/                  # Temporary files
 ```
@@ -160,7 +160,7 @@ document_polishing/
 **CLI scripts:** `scripts/extract_sections.py`, `scripts/test_sections.py`, `scripts/detect_ambiguities.py`, `scripts/generate_report.py`, `scripts/init_sessions.py`
 **Step modules:** `scripts/src/*_step.py` (extraction, session_init, testing, detection, reporting)
 **Supporting modules:** `scripts/src/model_interface.py`, `scripts/src/document_processor.py`, `scripts/src/prompt_generator.py`, `scripts/src/ambiguity_detector.py`, `scripts/src/session_manager.py`
-**Testing:** `tests/test_*.py` (127 tests), `docs/test/` (test documents and procedures)
+**Testing:** `tests/test_*.py` (132 tests), `docs/test/` (test documents and procedures)
 **Documentation:** `AGENTS.md` (this file), `README.md` (user guide), `docs/*.md` (design docs)
 **Development:** `SESSION_LOG.md` (history), `TODO.md` (pending tasks)
 

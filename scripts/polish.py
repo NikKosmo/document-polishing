@@ -66,6 +66,7 @@ class DocumentPolisher:
 
         # Judge model for LLM-as-Judge strategy
         self.judge_model = "claude"
+        self.resume = False
 
         # Setup logging
         self.log_file = self.workspace / "polish.log"
@@ -211,11 +212,17 @@ class DocumentPolisher:
             print(f"\n  Testing section [{i}]: {section['header']}")
             self._log(f"Testing section [{i}]: {section['header']}")
 
-        testing_result = testing_step.test_sections(sections, models, use_sessions=(session_init_result is not None))
+        results_file = self.workspace / "test_results.json"
+        testing_result = testing_step.test_sections(
+            sections,
+            models,
+            use_sessions=(session_init_result is not None),
+            output_path=str(results_file),
+            resume=self.resume,
+        )
         test_results = testing_result.test_results
 
         # Save test results
-        results_file = self.workspace / "test_results.json"
         testing_result.save(str(results_file))
         print(f"\n  Test results saved to: {results_file}")
 
@@ -455,6 +462,7 @@ def main():
     parser.add_argument("--list-models", action="store_true", help="List available models")
     parser.add_argument("--version", action="store_true", help="Show version")
     parser.add_argument("--judge", default="claude", help="Model to use as judge (default: claude)")
+    parser.add_argument("--resume", action="store_true", help="Resume testing from partial results")
 
     args = parser.parse_args()
 
@@ -490,6 +498,7 @@ def main():
     # Set judge model if specified
     if args.judge:
         polisher.judge_model = args.judge
+    polisher.resume = args.resume
 
     polisher.polish(models=models, profile=args.profile)
 

@@ -6,9 +6,10 @@ It queries multiple AI models to collect their interpretations of documentation 
 """
 
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from model_interface import ModelManager
 from prompt_generator import PromptGenerator
@@ -110,7 +111,14 @@ class TestingStep:
         # Initialize PromptGenerator
         self.prompt_gen = PromptGenerator()
 
-    def test_sections(self, sections: List[Dict], model_names: List[str], use_sessions: bool = True) -> TestingResult:
+    def test_sections(
+        self,
+        sections: List[Dict],
+        model_names: List[str],
+        use_sessions: bool = True,
+        output_path: Optional[str] = None,
+        resume: bool = False,
+    ) -> TestingResult:
         """
         Test sections with multiple AI models.
 
@@ -120,13 +128,32 @@ class TestingStep:
             sections: List of section dicts from extraction step
             model_names: List of model names to query
             use_sessions: Whether to use session management if available
+            output_path: Optional path to final output file (enables partial saves)
+            resume: Whether to resume from an existing partial file
 
         Returns:
             TestingResult containing test_results dict and metadata
         """
         test_results = {}
+        start_index = 0
+        partial_path = None
 
-        for i, section in enumerate(sections):
+        if output_path:
+            p = Path(output_path)
+            partial_path = p.with_name(f"{p.stem}_partial{p.suffix}")
+
+            if resume and partial_path.exists():
+                try:
+                    with open(partial_path, "r", encoding="utf-8") as f:
+                        test_results = json.load(f)
+                    start_index = len(test_results)
+                    print(f"  Resuming from {partial_path} (skipped {start_index} sections)")
+                except (json.JSONDecodeError, IOError) as e:
+                    print(f"  Warning: Could not load partial file: {e}. Starting from scratch.")
+                    test_results = {}
+
+        for i in range(start_index, len(sections)):
+            section = sections[i]
             section_id = f"section_{i}"
 
             # Generate prompt for this section
@@ -137,6 +164,19 @@ class TestingStep:
 
             # Store results
             test_results[section_id] = {"section": section, "results": results}
+
+            # Partial save
+            if partial_path:
+                partial_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(partial_path, "w", encoding="utf-8") as f:
+                    json.dump(test_results, f, indent=2, default=str, ensure_ascii=False)
+                    # Force data to be written to disk immediately
+                    f.flush()
+                    os.fsync(f.fileno())
+
+        # Cleanup partial file on success
+        if partial_path and partial_path.exists():
+            partial_path.unlink()
 
         return TestingResult(test_results=test_results, model_names=model_names, sections_tested=len(sections))
 
