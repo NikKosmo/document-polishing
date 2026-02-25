@@ -1,7 +1,7 @@
 """
 Reporting Step - Generate markdown reports and polished documents
 
-This module provides a clean interface for Step 4-5 of the document polishing pipeline.
+This module provides a clean interface for Step 5 of the document polishing pipeline.
 It generates formatted markdown reports from ambiguity detection results and creates
 polished versions of documents with clarification markers.
 """
@@ -62,7 +62,7 @@ class ReportingResult:
 
 class ReportingStep:
     """
-    Step 4-5: Generate report and polished document from ambiguity detection results.
+    Step 5: Generate report and polished document from ambiguity detection results.
 
     This class provides methods to generate markdown reports summarizing detected
     ambiguities and create polished versions of documents with clarification markers.

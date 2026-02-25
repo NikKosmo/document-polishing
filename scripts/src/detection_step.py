@@ -1,7 +1,7 @@
 """
 Detection Step - Detect ambiguities in model interpretations
 
-This module provides a clean interface for Step 3 of the document polishing pipeline.
+This module provides a clean interface for Step 4 of the document polishing pipeline.
 It uses ambiguity detection strategies (LLM-as-Judge or simple comparison) to identify
 disagreements between model interpretations.
 """
@@ -128,7 +128,7 @@ class DetectionResult:
 
 class DetectionStep:
     """
-    Step 3: Detect ambiguities in model interpretations.
+    Step 4: Detect ambiguities in model interpretations.
 
     This class wraps AmbiguityDetector to provide a clean interface for
     detecting disagreements between model interpretations using different strategies.

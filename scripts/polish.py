@@ -176,11 +176,11 @@ class DocumentPolisher:
             print("\n⚠️  No testable sections found in document")
             return
 
-        # Step 1.5: Initialize sessions (if enabled)
+        # Step 2: Initialize sessions (if enabled)
         session_init_result = None
         if self.model_manager.sessions_enabled():
-            print("\nStep 1.5: Initializing model sessions with document context...")
-            self._log("Step 1.5: Initializing model sessions...")
+            print("\nStep 2: Initializing model sessions with document context...")
+            self._log("Step 2: Initializing model sessions...")
             purpose_prompt = self.session_config.get(
                 "purpose_prompt",
                 "This document defines standards and requirements. Please analyze sections within this context.",
@@ -198,9 +198,9 @@ class DocumentPolisher:
         else:
             self._log("Session management disabled, using stateless mode")
 
-        # Step 2: Test sections with models
-        print("\nStep 2: Testing sections with models...")
-        self._log("Step 2: Testing sections with models...")
+        # Step 3: Test sections with models
+        print("\nStep 3: Testing sections with models...")
+        self._log("Step 3: Testing sections with models...")
         testing_step = TestingStep(
             self.config["models"],
             self.session_config,
@@ -219,9 +219,9 @@ class DocumentPolisher:
         testing_result.save(str(results_file))
         print(f"\n  Test results saved to: {results_file}")
 
-        # Step 3: Detect ambiguities
-        print("\nStep 3: Detecting ambiguities...")
-        self._log("Step 3: Detecting ambiguities...")
+        # Step 4: Detect ambiguities
+        print("\nStep 4: Detecting ambiguities...")
+        self._log("Step 4: Detecting ambiguities...")
         detection_step = DetectionStep(
             strategy="llm_judge",
             judge_model=self.judge_model,
@@ -276,9 +276,9 @@ class DocumentPolisher:
         detection_result.save(str(ambiguities_file))
         print(f"  Ambiguities saved to: {ambiguities_file}")
 
-        # Step 4: Generate report
-        print("\nStep 4: Generating report...")
-        self._log("Step 4: Generating report...")
+        # Step 5: Generate report
+        print("\nStep 5: Generating report...")
+        self._log("Step 5: Generating report...")
         reporting_step = ReportingStep(self.session_id, str(self.document_path), self.judge_model)
         report_content = reporting_step.generate_report(test_results, ambiguities, models)
 
@@ -288,9 +288,9 @@ class DocumentPolisher:
         print(f"  Report saved to: {report_file}")
         self._log(f"Report saved to: {report_file}")
 
-        # Step 5: Create polished version (if ambiguities found)
+        # Create polished version (if ambiguities found)
         if ambiguities:
-            print("\nStep 5: Creating polished version...")
+            print("  Creating polished version...")
             polished_content = reporting_step.generate_polished_document(
                 extraction_result.document_content, ambiguities
             )
