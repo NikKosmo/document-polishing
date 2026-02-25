@@ -1,18 +1,18 @@
 """Model Interface - Handles communication with AI models via CLI"""
 
-import subprocess
 import json
-import time
-from typing import Dict, Any, Optional
+import os
+import subprocess
 from abc import ABC, abstractmethod
+from typing import Any, Dict, Optional
 
-from session_manager import SessionManager
 from session_handlers import SessionCreationError, SessionQueryError
+from session_manager import SessionManager
 
 
 class ModelInterface(ABC):
     """Abstract base class for model interfaces"""
-    
+
     @abstractmethod
     def query(self, prompt: str) -> Dict[str, Any]:
         """Send a query to the model and return response"""
@@ -21,12 +21,12 @@ class ModelInterface(ABC):
 
 class CLIModel(ModelInterface):
     """CLI-based model interface using subprocess"""
-    
+
     def __init__(self, command: str, args: list = None, timeout: int = 30):
         self.command = command
         self.args = args or []
         self.timeout = timeout
-        
+
     def query(self, prompt: str) -> Dict[str, Any]:
         """Execute CLI command with prompt and return parsed response"""
         try:
@@ -34,20 +34,13 @@ class CLIModel(ModelInterface):
             cmd = [self.command] + self.args
 
             # Execute with prompt as stdin
-            result = subprocess.run(
-                cmd,
-                input=prompt,
-                capture_output=True,
-                text=True,
-                timeout=self.timeout
-            )
+            # Strip CLAUDECODE env var to allow Claude CLI inside Claude Code sessions
+            env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+
+            result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=self.timeout, env=env)
 
             if result.returncode != 0:
-                return {
-                    "error": True,
-                    "stderr": result.stderr,
-                    "raw_response": result.stdout
-                }
+                return {"error": True, "stderr": result.stderr, "raw_response": result.stdout}
 
             # Try to parse as JSON first
             try:
@@ -59,59 +52,45 @@ class CLIModel(ModelInterface):
                     return json.loads(stripped)
                 except json.JSONDecodeError:
                     # Return as raw text if still not JSON
-                    return {
-                        "error": False,
-                        "raw_response": result.stdout.strip()
-                    }
+                    return {"error": False, "raw_response": result.stdout.strip()}
 
         except subprocess.TimeoutExpired:
-            return {
-                "error": True,
-                "message": f"Timeout after {self.timeout}s"
-            }
+            return {"error": True, "message": f"Timeout after {self.timeout}s"}
         except FileNotFoundError:
-            return {
-                "error": True,
-                "message": f"Command '{self.command}' not found. Is it installed?"
-            }
+            return {"error": True, "message": f"Command '{self.command}' not found. Is it installed?"}
         except Exception as e:
-            return {
-                "error": True,
-                "message": str(e)
-            }
+            return {"error": True, "message": str(e)}
 
     def _strip_markdown_code_blocks(self, text: str) -> str:
         """Strip markdown code blocks from text (e.g., ```json ... ```)"""
         text = text.strip()
         # Remove ```json or ``` at start
-        if text.startswith('```json'):
+        if text.startswith("```json"):
             text = text[7:]
-        elif text.startswith('```'):
+        elif text.startswith("```"):
             text = text[3:]
         # Remove ``` at end
-        if text.endswith('```'):
+        if text.endswith("```"):
             text = text[:-3]
         return text.strip()
 
 
 class ModelFactory:
     """Factory for creating model instances"""
-    
+
     @staticmethod
     def create_cli_model(name: str, config: Dict[str, Any]) -> CLIModel:
         """Create a CLI model from configuration"""
         return CLIModel(
-            command=config.get('command', name),
-            args=config.get('args', []),
-            timeout=config.get('timeout', 30)
+            command=config.get("command", name), args=config.get("args", []), timeout=config.get("timeout", 30)
         )
-    
+
     @staticmethod
     def create(name: str, config: Dict[str, Any]) -> ModelInterface:
         """Create appropriate model interface based on config type"""
-        model_type = config.get('type', 'cli')
-        
-        if model_type == 'cli':
+        model_type = config.get("type", "cli")
+
+        if model_type == "cli":
             return ModelFactory.create_cli_model(name, config)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
@@ -181,10 +160,7 @@ class ModelManager:
             Model response dict
         """
         if model_name not in self.models:
-            return {
-                "error": True,
-                "message": f"Model '{model_name}' not available"
-            }
+            return {"error": True, "message": f"Model '{model_name}' not available"}
 
         # Try session-based query if enabled and available
         if use_session and self.session_manager and self.session_manager.has_session(model_name):
@@ -218,10 +194,7 @@ class ModelManager:
                 print(f"  Querying {name}...")
                 results[name] = self.query(name, prompt, use_session=use_session)
             else:
-                results[name] = {
-                    "error": True,
-                    "message": f"Model '{name}' not found"
-                }
+                results[name] = {"error": True, "message": f"Model '{name}' not found"}
 
         return results
 

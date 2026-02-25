@@ -1,29 +1,34 @@
 """Session Handlers - Model-specific session management implementations"""
 
-import subprocess
 import json
+import os
 import re
+import subprocess
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 
 class SessionError(Exception):
     """Base exception for session errors"""
+
     pass
 
 
 class SessionCreationError(SessionError):
     """Failed to create session"""
+
     pass
 
 
 class SessionLostError(SessionError):
     """Session no longer valid"""
+
     pass
 
 
 class SessionQueryError(SessionError):
     """Query failed within session"""
+
     pass
 
 
@@ -72,12 +77,11 @@ class BaseSessionHandler(ABC):
     def _run_command(self, cmd: list, input_text: str = None) -> subprocess.CompletedProcess:
         """Execute command with optional input"""
         try:
+            # Strip CLAUDECODE env var to allow Claude CLI inside Claude Code sessions
+            env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+
             result = subprocess.run(
-                cmd,
-                input=input_text,
-                capture_output=True,
-                text=True,
-                timeout=self.timeout
+                cmd, input=input_text, capture_output=True, text=True, timeout=self.timeout, env=env
             )
             return result
         except subprocess.TimeoutExpired:
@@ -155,7 +159,9 @@ class ClaudeSessionHandler(BaseSessionHandler):
 
         if result.returncode != 0:
             # Check if session lost
-            if "session" in result.stderr.lower() and ("not found" in result.stderr.lower() or "invalid" in result.stderr.lower()):
+            if "session" in result.stderr.lower() and (
+                "not found" in result.stderr.lower() or "invalid" in result.stderr.lower()
+            ):
                 raise SessionLostError(f"Claude session {session_id} lost: {result.stderr}")
             raise SessionQueryError(f"Claude query failed: {result.stderr}")
 
@@ -201,7 +207,9 @@ class GeminiSessionHandler(BaseSessionHandler):
         result = self._run_command(cmd, input_text=None)
 
         if result.returncode != 0:
-            if "session" in result.stderr.lower() and ("not found" in result.stderr.lower() or "invalid" in result.stderr.lower()):
+            if "session" in result.stderr.lower() and (
+                "not found" in result.stderr.lower() or "invalid" in result.stderr.lower()
+            ):
                 raise SessionLostError(f"Gemini session lost: {result.stderr}")
             raise SessionQueryError(f"Gemini query failed: {result.stderr}")
 
@@ -263,7 +271,9 @@ class CodexSessionHandler(BaseSessionHandler):
         result = self._run_command(cmd, input_text=None)
 
         if result.returncode != 0:
-            if "session" in result.stderr.lower() and ("not found" in result.stderr.lower() or "no" in result.stderr.lower()):
+            if "session" in result.stderr.lower() and (
+                "not found" in result.stderr.lower() or "no" in result.stderr.lower()
+            ):
                 raise SessionLostError(f"Codex session lost: {result.stderr}")
             raise SessionQueryError(f"Codex query failed: {result.stderr}")
 

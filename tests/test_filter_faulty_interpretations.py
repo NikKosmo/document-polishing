@@ -36,7 +36,7 @@ class TestInterpretationFromResponse:
             "interpretation": "This is a valid interpretation",
             "steps": ["Step 1"],
             "assumptions": [],
-            "ambiguities": []
+            "ambiguities": [],
         }
         interp = Interpretation.from_response("claude", response)
 
@@ -61,19 +61,16 @@ class TestFilterFaultyInterpretations:
                         "interpretation": "Valid interpretation",
                         "steps": [],
                         "assumptions": [],
-                        "ambiguities": []
+                        "ambiguities": [],
                     },
-                    "gemini": {
-                        "error": True,
-                        "message": "Timeout after 180s"
-                    },
+                    "gemini": {"error": True, "message": "Timeout after 180s"},
                     "codex": {
                         "interpretation": "Another valid interpretation",
                         "steps": [],
                         "assumptions": [],
-                        "ambiguities": []
-                    }
-                }
+                        "ambiguities": [],
+                    },
+                },
             }
         }
 
@@ -93,19 +90,16 @@ class TestFilterFaultyInterpretations:
                         "interpretation": "Valid interpretation",
                         "steps": [],
                         "assumptions": [],
-                        "ambiguities": []
+                        "ambiguities": [],
                     },
-                    "gemini": {
-                        "error": False,
-                        "raw_response": "```js\n{some invalid json}\n```"
-                    },
+                    "gemini": {"error": False, "raw_response": "```js\n{some invalid json}\n```"},
                     "codex": {
                         "interpretation": "Another valid interpretation",
                         "steps": [],
                         "assumptions": [],
-                        "ambiguities": []
-                    }
-                }
+                        "ambiguities": [],
+                    },
+                },
             }
         }
 
@@ -123,21 +117,16 @@ class TestFilterFaultyInterpretations:
                         "interpretation": "Valid interpretation",
                         "steps": [],
                         "assumptions": [],
-                        "ambiguities": []
+                        "ambiguities": [],
                     },
-                    "gemini": {
-                        "interpretation": "   \n\t  ",
-                        "steps": [],
-                        "assumptions": [],
-                        "ambiguities": []
-                    },
+                    "gemini": {"interpretation": "   \n\t  ", "steps": [], "assumptions": [], "ambiguities": []},
                     "codex": {
                         "interpretation": "Another valid interpretation",
                         "steps": [],
                         "assumptions": [],
-                        "ambiguities": []
-                    }
-                }
+                        "ambiguities": [],
+                    },
+                },
             }
         }
 
@@ -155,17 +144,11 @@ class TestFilterFaultyInterpretations:
                         "interpretation": "Only valid interpretation",
                         "steps": [],
                         "assumptions": [],
-                        "ambiguities": []
+                        "ambiguities": [],
                     },
-                    "gemini": {
-                        "error": True,
-                        "message": "Timeout"
-                    },
-                    "codex": {
-                        "error": False,
-                        "raw_response": "unparseable response"
-                    }
-                }
+                    "gemini": {"error": True, "message": "Timeout"},
+                    "codex": {"error": False, "raw_response": "unparseable response"},
+                },
             }
         }
 
@@ -183,19 +166,16 @@ class TestFilterFaultyInterpretations:
                         "interpretation": "Interpretation A with specific details",
                         "steps": ["Do X", "Do Y"],
                         "assumptions": ["Assume Z"],
-                        "ambiguities": []
+                        "ambiguities": [],
                     },
-                    "gemini": {
-                        "error": True,
-                        "message": "Timeout"
-                    },
+                    "gemini": {"error": True, "message": "Timeout"},
                     "codex": {
                         "interpretation": "Interpretation B with different approach",
                         "steps": ["Do P", "Do Q"],
                         "assumptions": [],
-                        "ambiguities": []
-                    }
-                }
+                        "ambiguities": [],
+                    },
+                },
             }
         }
 
@@ -211,26 +191,23 @@ class TestFilterFaultyInterpretations:
             "section_7": {
                 "section": {
                     "header": "Cross-Project TODOs",
-                    "content": "**Root `TODO.md`** should track cross-project items"
+                    "content": "**Root `TODO.md`** should track cross-project items",
                 },
                 "results": {
                     "claude": {
                         "interpretation": "The root TODO.md file should be used exclusively for tasks that span multiple projects",
                         "steps": ["Create or maintain a TODO.md file at the root level"],
                         "assumptions": ["Priority levels follow standard convention"],
-                        "ambiguities": ["What exactly constitutes a cross-project dependency?"]
+                        "ambiguities": ["What exactly constitutes a cross-project dependency?"],
                     },
-                    "gemini": {
-                        "error": False,
-                        "raw_response": "```js\n{\"interpretation\": \"some text\"}\n```"
-                    },
+                    "gemini": {"error": False, "raw_response": '```js\n{"interpretation": "some text"}\n```'},
                     "codex": {
                         "interpretation": "The root TODO.md must maintain a consolidated list of cross-project efforts",
                         "steps": ["Open the root TODO.md file"],
                         "assumptions": ["Cross-project scope means initiatives that impact more than one project"],
-                        "ambiguities": ["Not specified how often TODO.md should be updated"]
-                    }
-                }
+                        "ambiguities": ["Not specified how often TODO.md should be updated"],
+                    },
+                },
             }
         }
 

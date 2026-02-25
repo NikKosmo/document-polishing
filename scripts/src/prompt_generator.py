@@ -1,17 +1,17 @@
 """Prompt Generator - Creates prompts for testing documentation sections"""
 
-from typing import Dict, List
+from typing import Dict
 
 
 class PromptGenerator:
     """Generates prompts for testing documentation with AI models"""
-    
+
     @staticmethod
     def create_interpretation_prompt(section: Dict) -> str:
         """Create a prompt to test how a model interprets instructions"""
-        header = section.get('header', 'Section')
-        content = section.get('content', '')
-        
+        header = section.get("header", "Section")
+        content = section.get("content", "")
+
         prompt = f"""You are testing documentation for clarity. Read the following section and provide your interpretation.
 
 SECTION: {header}
@@ -34,13 +34,13 @@ Respond ONLY with valid JSON in this format:
 }}
 """
         return prompt
-    
+
     @staticmethod
     def create_implementation_prompt(section: Dict) -> str:
         """Create a prompt asking the model to implement the instructions"""
-        header = section.get('header', 'Section')
-        content = section.get('content', '')
-        
+        header = section.get("header", "Section")
+        content = section.get("content", "")
+
         prompt = f"""You are implementing the following documentation section.
 
 SECTION: {header}
@@ -56,12 +56,12 @@ Describe exactly what you would implement. Respond with JSON:
 }}
 """
         return prompt
-    
+
     @staticmethod
     def create_qa_prompt(section: Dict) -> str:
         """Create a prompt with questions about the section"""
-        content = section.get('content', '')
-        
+        content = section.get("content", "")
+
         prompt = f"""Read these instructions and answer the questions:
 
 INSTRUCTIONS:
@@ -82,12 +82,12 @@ Respond with JSON:
 }}
 """
         return prompt
-    
+
     @staticmethod
     def create_simple_prompt(section: Dict) -> str:
         """Create a simple prompt for basic interpretation testing"""
-        content = section.get('content', '')
-        
+        content = section.get("content", "")
+
         prompt = f"""Read these instructions and explain what you would do:
 
 {content}
@@ -99,7 +99,7 @@ Respond with a brief explanation of your interpretation.
 
 class PromptTemplates:
     """Collection of prompt templates"""
-    
+
     INTERPRETATION = """You are testing documentation for clarity.
 
 SECTION: {header}
@@ -113,7 +113,7 @@ Provide your interpretation as JSON:
   "ambiguities": ["unclear point 1"]
 }}
 """
-    
+
     COMPARISON = """Compare these two interpretations of the same documentation:
 
 INTERPRETATION A:
@@ -129,7 +129,7 @@ Are they describing the same thing? Respond with JSON:
   "severity": "low/medium/high"
 }}
 """
-    
+
     FIX_SUGGESTION = """This documentation section has been interpreted differently by different readers:
 
 ORIGINAL:

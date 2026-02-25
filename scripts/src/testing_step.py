@@ -7,8 +7,8 @@ It queries multiple AI models to collect their interpretations of documentation 
 
 import json
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional
 from pathlib import Path
+from typing import Dict, List
 
 from model_interface import ModelManager
 from prompt_generator import PromptGenerator
@@ -23,6 +23,7 @@ class TestingResult:
     Contains test results mapping section IDs to section data and model responses,
     along with metadata about which models were tested and how many sections.
     """
+
     test_results: Dict[str, Dict] = field(default_factory=dict)
     model_names: List[str] = field(default_factory=list)
     sections_tested: int = 0
@@ -37,11 +38,11 @@ class TestingResult:
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(output_file, 'w', encoding='utf-8') as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             json.dump(self.test_results, f, indent=2, default=str, ensure_ascii=False)
 
     @classmethod
-    def load(cls, input_path: str) -> 'TestingResult':
+    def load(cls, input_path: str) -> "TestingResult":
         """
         Load testing result from JSON file.
 
@@ -59,7 +60,7 @@ class TestingResult:
         if not input_file.exists():
             raise FileNotFoundError(f"Testing result not found: {input_path}")
 
-        with open(input_file, 'r', encoding='utf-8') as f:
+        with open(input_file, "r", encoding="utf-8") as f:
             test_results = json.load(f)
 
         # Extract model names from first section
@@ -67,15 +68,11 @@ class TestingResult:
         sections_tested = len(test_results)
 
         for section_data in test_results.values():
-            if 'results' in section_data:
-                model_names = list(section_data['results'].keys())
+            if "results" in section_data:
+                model_names = list(section_data["results"].keys())
                 break
 
-        return cls(
-            test_results=test_results,
-            model_names=model_names,
-            sections_tested=sections_tested
-        )
+        return cls(test_results=test_results, model_names=model_names, sections_tested=sections_tested)
 
 
 class TestingStep:
@@ -91,12 +88,7 @@ class TestingStep:
         result.save('test_results.json')
     """
 
-    def __init__(
-        self,
-        models_config: Dict,
-        session_config: Dict = None,
-        session_manager: SessionManager = None
-    ):
+    def __init__(self, models_config: Dict, session_config: Dict = None, session_manager: SessionManager = None):
         """
         Initialize testing step.
 
@@ -118,12 +110,7 @@ class TestingStep:
         # Initialize PromptGenerator
         self.prompt_gen = PromptGenerator()
 
-    def test_sections(
-        self,
-        sections: List[Dict],
-        model_names: List[str],
-        use_sessions: bool = True
-    ) -> TestingResult:
+    def test_sections(self, sections: List[Dict], model_names: List[str], use_sessions: bool = True) -> TestingResult:
         """
         Test sections with multiple AI models.
 
@@ -146,31 +133,17 @@ class TestingStep:
             prompt = self.prompt_gen.create_interpretation_prompt(section)
 
             # Query all models
-            results = self.model_manager.query_all(
-                prompt,
-                model_names,
-                use_session=use_sessions
-            )
+            results = self.model_manager.query_all(prompt, model_names, use_session=use_sessions)
 
             # Store results
-            test_results[section_id] = {
-                'section': section,
-                'results': results
-            }
+            test_results[section_id] = {"section": section, "results": results}
 
-        return TestingResult(
-            test_results=test_results,
-            model_names=model_names,
-            sections_tested=len(sections)
-        )
+        return TestingResult(test_results=test_results, model_names=model_names, sections_tested=len(sections))
 
 
 # Convenience function for simple usage
 def test_sections_with_models(
-    sections: List[Dict],
-    model_names: List[str],
-    models_config: Dict,
-    session_config: Dict = None
+    sections: List[Dict], model_names: List[str], models_config: Dict, session_config: Dict = None
 ) -> TestingResult:
     """
     Test sections with models (convenience function).
@@ -189,8 +162,9 @@ def test_sections_with_models(
 
 
 # For testing the module directly
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
+
     import yaml
 
     if len(sys.argv) < 3:
@@ -199,29 +173,29 @@ if __name__ == '__main__':
         sys.exit(1)
 
     sections_file = sys.argv[1]
-    model_names = [m.strip() for m in sys.argv[2].split(',')]
-    config_file = sys.argv[3] if len(sys.argv) > 3 else 'config.yaml'
-    output_file = sys.argv[4] if len(sys.argv) > 4 else 'test_results.json'
+    model_names = [m.strip() for m in sys.argv[2].split(",")]
+    config_file = sys.argv[3] if len(sys.argv) > 3 else "config.yaml"
+    output_file = sys.argv[4] if len(sys.argv) > 4 else "test_results.json"
 
     # Load sections
-    with open(sections_file, 'r') as f:
+    with open(sections_file, "r") as f:
         sections_data = json.load(f)
-        sections = sections_data.get('sections', sections_data)
+        sections = sections_data.get("sections", sections_data)
 
     # Load config
-    with open(config_file, 'r') as f:
+    with open(config_file, "r") as f:
         config = yaml.safe_load(f)
 
     print(f"Testing {len(sections)} sections with models: {', '.join(model_names)}")
 
     # Test sections
-    step = TestingStep(config['models'], config.get('session_management', {}))
+    step = TestingStep(config["models"], config.get("session_management", {}))
     result = step.test_sections(sections, model_names, use_sessions=False)
 
     # Save results
     result.save(output_file)
 
-    print(f"\nTesting complete!")
+    print("\nTesting complete!")
     print(f"Sections tested: {result.sections_tested}")
     print(f"Models used: {', '.join(result.model_names)}")
     print(f"Results saved to: {output_file}")

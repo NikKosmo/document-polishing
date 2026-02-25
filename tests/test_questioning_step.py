@@ -12,36 +12,34 @@ Test coverage for Phase 1 & 2:
 - End-to-end integration
 """
 
-import pytest
 import json
-import tempfile
-import shutil
 import sys
 from pathlib import Path
-from datetime import datetime
+
+import pytest
 
 # Add scripts/src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts' / 'src'))
+sys.path.insert(0, str(Path(__file__).parent.parent / "scripts" / "src"))
 
 from questioning_step import (
+    ElementExtractor,
     Question,
     QuestionAnswer,
     QuestionEvaluation,
-    QuestionResult,
     QuestioningResult,
-    TestableElement,
-    ElementExtractor,
-    TemplateLoader,
-    TemplateApplicator,
-    QuestionValidator,
     QuestioningStep,
-    generate_questions_from_sections
+    QuestionResult,
+    QuestionValidator,
+    TemplateApplicator,
+    TemplateLoader,
+    TestableElement,
+    generate_questions_from_sections,
 )
-
 
 # ============================================================================
 # Test Class 1: Question Dataclass
 # ============================================================================
+
 
 class TestQuestionDataclass:
     """Test Question dataclass validation."""
@@ -55,13 +53,9 @@ class TestQuestionDataclass:
             difficulty="basic",
             scope="section",
             target_sections=["section_1"],
-            expected_answer={
-                "text": "JSON format",
-                "source_lines": [10, 12],
-                "confidence": "high"
-            },
+            expected_answer={"text": "JSON format", "source_lines": [10, 12], "confidence": "high"},
             generation_method="template",
-            template_id="factual_format_01"
+            template_id="factual_format_01",
         )
 
         assert question.question_id == "q_001"
@@ -79,7 +73,7 @@ class TestQuestionDataclass:
                 scope="section",
                 target_sections=["section_1"],
                 expected_answer="JSON format",  # String instead of Dict
-                generation_method="template"
+                generation_method="template",
             )
 
     def test_question_requires_text_field_in_answer(self):
@@ -93,7 +87,7 @@ class TestQuestionDataclass:
                 scope="section",
                 target_sections=["section_1"],
                 expected_answer={"confidence": "high"},  # Missing 'text' field
-                generation_method="template"
+                generation_method="template",
             )
 
     def test_question_validates_category(self):
@@ -107,7 +101,7 @@ class TestQuestionDataclass:
                 scope="section",
                 target_sections=["section_1"],
                 expected_answer={"text": "JSON format"},
-                generation_method="template"
+                generation_method="template",
             )
 
     def test_question_validates_difficulty(self):
@@ -121,7 +115,7 @@ class TestQuestionDataclass:
                 scope="section",
                 target_sections=["section_1"],
                 expected_answer={"text": "JSON format"},
-                generation_method="template"
+                generation_method="template",
             )
 
     def test_question_validates_scope(self):
@@ -135,7 +129,7 @@ class TestQuestionDataclass:
                 scope="global",  # Invalid
                 target_sections=["section_1"],
                 expected_answer={"text": "JSON format"},
-                generation_method="template"
+                generation_method="template",
             )
 
     def test_question_to_dict_roundtrip(self):
@@ -150,7 +144,7 @@ class TestQuestionDataclass:
             expected_answer={"text": "JSON format", "confidence": "high"},
             generation_method="template",
             template_id="factual_format_01",
-            metadata={"key": "value"}
+            metadata={"key": "value"},
         )
 
         # Serialize
@@ -169,6 +163,7 @@ class TestQuestionDataclass:
 # Test Class 2: QuestioningResult
 # ============================================================================
 
+
 class TestQuestioningResult:
     """Test QuestioningResult save/load functionality."""
 
@@ -183,7 +178,7 @@ class TestQuestioningResult:
             scope="section",
             target_sections=["section_1"],
             expected_answer={"text": "JSON format"},
-            generation_method="template"
+            generation_method="template",
         )
 
         # Create result
@@ -191,7 +186,7 @@ class TestQuestioningResult:
             questions=[question],
             document_path="test.md",
             generation_timestamp="2025-12-28T10:00:00",
-            generator_version="1.0.0-phase2"
+            generator_version="1.0.0-phase2",
         )
 
         # Save
@@ -216,7 +211,7 @@ class TestQuestioningResult:
             scope="section",
             target_sections=["section_1"],
             expected_answer={"text": "100 caractères"},
-            generation_method="template"
+            generation_method="template",
         )
 
         result = QuestioningResult(questions=[question])
@@ -240,7 +235,7 @@ class TestQuestioningResult:
                 target_sections=[f"section_{i % 5}"],
                 expected_answer={"text": f"Answer {i}"},
                 generation_method="template",
-                metadata={"element_text": f"Element {i % 5}"}  # 5 unique elements
+                metadata={"element_text": f"Element {i % 5}"},  # 5 unique elements
             )
             for i in range(1, 11)
         ]
@@ -264,6 +259,7 @@ class TestQuestioningResult:
 # Test Class 3: Template Loading
 # ============================================================================
 
+
 class TestTemplateLoading:
     """Test template loading functionality."""
 
@@ -278,22 +274,16 @@ class TestTemplateLoading:
                     "category": "factual",
                     "difficulty": "basic",
                     "question_pattern": "What is {element_text}?",
-                    "triggers": {
-                        "element_types": ["requirement"],
-                        "required_keywords": ["must"]
-                    }
+                    "triggers": {"element_types": ["requirement"], "required_keywords": ["must"]},
                 },
                 {
                     "template_id": "test_02",
                     "category": "procedural",
                     "difficulty": "intermediate",
                     "question_pattern": "How to {element_text}?",
-                    "triggers": {
-                        "element_types": ["step"],
-                        "required_keywords": []
-                    }
-                }
-            ]
+                    "triggers": {"element_types": ["step"], "required_keywords": []},
+                },
+            ],
         }
 
         template_path = tmp_path / "templates.json"
@@ -332,17 +322,20 @@ class TestTemplateLoading:
 # Test Class 4: Element Extraction
 # ============================================================================
 
+
 class TestElementExtraction:
     """Test element extraction with 8 regex patterns."""
 
     def test_extract_steps(self):
         """Test extracting step elements."""
-        sections = [{
-            "section_id": "section_1",
-            "title": "Installation",
-            "content": "Step 1: Download the file\nStep 2: Extract the archive",
-            "start_line": 1
-        }]
+        sections = [
+            {
+                "section_id": "section_1",
+                "title": "Installation",
+                "content": "Step 1: Download the file\nStep 2: Extract the archive",
+                "start_line": 1,
+            }
+        ]
 
         extractor = ElementExtractor()
         elements = extractor.extract_elements(sections)
@@ -353,12 +346,14 @@ class TestElementExtraction:
 
     def test_extract_requirements(self):
         """Test extracting requirement elements."""
-        sections = [{
-            "section_id": "section_1",
-            "title": "Requirements",
-            "content": "The system must support UTF-8 encoding. Authentication is required.",
-            "start_line": 1
-        }]
+        sections = [
+            {
+                "section_id": "section_1",
+                "title": "Requirements",
+                "content": "The system must support UTF-8 encoding. Authentication is required.",
+                "start_line": 1,
+            }
+        ]
 
         extractor = ElementExtractor()
         elements = extractor.extract_elements(sections)
@@ -369,12 +364,14 @@ class TestElementExtraction:
 
     def test_extract_conditionals(self):
         """Test extracting conditional elements."""
-        sections = [{
-            "section_id": "section_1",
-            "title": "Usage",
-            "content": "If the file exists, skip download. When processing fails, retry.",
-            "start_line": 1
-        }]
+        sections = [
+            {
+                "section_id": "section_1",
+                "title": "Usage",
+                "content": "If the file exists, skip download. When processing fails, retry.",
+                "start_line": 1,
+            }
+        ]
 
         extractor = ElementExtractor()
         elements = extractor.extract_elements(sections)
@@ -385,12 +382,14 @@ class TestElementExtraction:
 
     def test_extract_outputs(self):
         """Test extracting output elements."""
-        sections = [{
-            "section_id": "section_1",
-            "title": "Output",
-            "content": "The script generates a JSON report. Returns exit code 0 on success.",
-            "start_line": 1
-        }]
+        sections = [
+            {
+                "section_id": "section_1",
+                "title": "Output",
+                "content": "The script generates a JSON report. Returns exit code 0 on success.",
+                "start_line": 1,
+            }
+        ]
 
         extractor = ElementExtractor()
         elements = extractor.extract_elements(sections)
@@ -400,12 +399,14 @@ class TestElementExtraction:
 
     def test_extract_inputs(self):
         """Test extracting input elements."""
-        sections = [{
-            "section_id": "section_1",
-            "title": "Input",
-            "content": "The function accepts two parameters. Takes a configuration file as input.",
-            "start_line": 1
-        }]
+        sections = [
+            {
+                "section_id": "section_1",
+                "title": "Input",
+                "content": "The function accepts two parameters. Takes a configuration file as input.",
+                "start_line": 1,
+            }
+        ]
 
         extractor = ElementExtractor()
         elements = extractor.extract_elements(sections)
@@ -415,12 +416,14 @@ class TestElementExtraction:
 
     def test_extract_constraints(self):
         """Test extracting constraint elements."""
-        sections = [{
-            "section_id": "section_1",
-            "title": "Limits",
-            "content": "The maximum file size is 10MB. Must use at least 2 characters.",
-            "start_line": 1
-        }]
+        sections = [
+            {
+                "section_id": "section_1",
+                "title": "Limits",
+                "content": "The maximum file size is 10MB. Must use at least 2 characters.",
+                "start_line": 1,
+            }
+        ]
 
         extractor = ElementExtractor()
         elements = extractor.extract_elements(sections)
@@ -431,12 +434,14 @@ class TestElementExtraction:
 
     def test_extract_defaults(self):
         """Test extracting default elements."""
-        sections = [{
-            "section_id": "section_1",
-            "title": "Configuration",
-            "content": "The timeout defaults to 30 seconds. Port is set to 8080.",
-            "start_line": 1
-        }]
+        sections = [
+            {
+                "section_id": "section_1",
+                "title": "Configuration",
+                "content": "The timeout defaults to 30 seconds. Port is set to 8080.",
+                "start_line": 1,
+            }
+        ]
 
         extractor = ElementExtractor()
         elements = extractor.extract_elements(sections)
@@ -446,12 +451,14 @@ class TestElementExtraction:
 
     def test_extract_exceptions(self):
         """Test extracting exception elements."""
-        sections = [{
-            "section_id": "section_1",
-            "title": "Error Handling",
-            "content": "If validation fails, return error. Raises an exception on invalid input.",
-            "start_line": 1
-        }]
+        sections = [
+            {
+                "section_id": "section_1",
+                "title": "Error Handling",
+                "content": "If validation fails, return error. Raises an exception on invalid input.",
+                "start_line": 1,
+            }
+        ]
 
         extractor = ElementExtractor()
         elements = extractor.extract_elements(sections)
@@ -461,12 +468,14 @@ class TestElementExtraction:
 
     def test_remove_duplicates(self):
         """Test that duplicate elements are removed."""
-        sections = [{
-            "section_id": "section_1",
-            "title": "Test",
-            "content": "The system must work. The system must work.",  # Duplicate
-            "start_line": 1
-        }]
+        sections = [
+            {
+                "section_id": "section_1",
+                "title": "Test",
+                "content": "The system must work. The system must work.",  # Duplicate
+                "start_line": 1,
+            }
+        ]
 
         extractor = ElementExtractor()
         elements = extractor.extract_elements(sections)
@@ -479,6 +488,7 @@ class TestElementExtraction:
 # ============================================================================
 # Test Class 5: Template Application
 # ============================================================================
+
 
 class TestTemplateApplication:
     """Test template application logic."""
@@ -493,10 +503,7 @@ class TestTemplateApplication:
                 "difficulty": "basic",
                 "question_pattern": "What is {element_text}?",
                 "answer_extraction": {"confidence_threshold": "high"},
-                "triggers": {
-                    "element_types": ["requirement"],
-                    "required_keywords": ["must"]
-                }
+                "triggers": {"element_types": ["requirement"], "required_keywords": ["must"]},
             },
             {
                 "template_id": "procedural_01",
@@ -504,11 +511,8 @@ class TestTemplateApplication:
                 "difficulty": "basic",
                 "question_pattern": "How to {element_text}?",
                 "answer_extraction": {"confidence_threshold": "medium"},
-                "triggers": {
-                    "element_types": ["step"],
-                    "required_keywords": []
-                }
-            }
+                "triggers": {"element_types": ["step"], "required_keywords": []},
+            },
         ]
 
     def test_apply_matching_template(self, templates):
@@ -520,7 +524,7 @@ class TestTemplateApplication:
             section_title="Requirements",
             start_line=10,
             end_line=10,
-            context="The system must support UTF-8 encoding"
+            context="The system must support UTF-8 encoding",
         )
 
         applicator = TemplateApplicator(templates)
@@ -540,7 +544,7 @@ class TestTemplateApplication:
             section_title="Output",
             start_line=10,
             end_line=10,
-            context="The system produces a report"
+            context="The system produces a report",
         )
 
         applicator = TemplateApplicator(templates)
@@ -559,7 +563,7 @@ class TestTemplateApplication:
             section_title="Steps",
             start_line=10,
             end_line=10,
-            context="Step 1: Download the file"
+            context="Step 1: Download the file",
         )
 
         # Add more templates that would all match
@@ -574,6 +578,7 @@ class TestTemplateApplication:
 # ============================================================================
 # Test Class 6: Question Validation
 # ============================================================================
+
 
 class TestQuestionValidation:
     """Test question validation with 4 rules."""
@@ -593,7 +598,7 @@ class TestQuestionValidation:
             section_title="Requirements",
             start_line=10,
             end_line=10,
-            context="Documentation states: The system must support UTF-8 encoding for all text files"
+            context="Documentation states: The system must support UTF-8 encoding for all text files",
         )
 
     def test_valid_question_passes(self, validator, sample_element):
@@ -657,6 +662,7 @@ class TestQuestionValidation:
 # Test Class 7: Coverage Calculation
 # ============================================================================
 
+
 class TestCoverageCalculation:
     """Test coverage calculation with 70%/60% targets."""
 
@@ -671,7 +677,7 @@ class TestCoverageCalculation:
                 scope="section",
                 target_sections=[f"section_{i % 3}"],  # 3 sections covered
                 expected_answer={"text": f"Answer {i}"},
-                generation_method="template"
+                generation_method="template",
             )
             for i in range(6)
         ]
@@ -696,7 +702,7 @@ class TestCoverageCalculation:
                 target_sections=["section_1"],
                 expected_answer={"text": f"Answer {i}"},
                 generation_method="template",
-                metadata={"element_text": f"Unique element {i}"}  # Each question tests different element
+                metadata={"element_text": f"Unique element {i}"},  # Each question tests different element
             )
             for i in range(12)
         ]
@@ -716,32 +722,36 @@ class TestCoverageCalculation:
 
         # Cover 8 sections with unique elements
         for section_id in range(8):
-            questions.append(Question(
-                question_id=f"q_{qid:03d}",
-                question_text=f"Question {qid}",
-                category="factual",
-                difficulty="basic",
-                scope="section",
-                target_sections=[f"section_{section_id}"],
-                expected_answer={"text": f"Answer {qid}"},
-                generation_method="template",
-                metadata={"element_text": f"Element {qid}"}  # Unique element
-            ))
+            questions.append(
+                Question(
+                    question_id=f"q_{qid:03d}",
+                    question_text=f"Question {qid}",
+                    category="factual",
+                    difficulty="basic",
+                    scope="section",
+                    target_sections=[f"section_{section_id}"],
+                    expected_answer={"text": f"Answer {qid}"},
+                    generation_method="template",
+                    metadata={"element_text": f"Element {qid}"},  # Unique element
+                )
+            )
             qid += 1
 
         # Add more questions with unique elements to reach 15 unique elements
-        for i in range(7):
-            questions.append(Question(
-                question_id=f"q_{qid:03d}",
-                question_text=f"Question {qid}",
-                category="factual",
-                difficulty="basic",
-                scope="section",
-                target_sections=["section_0"],  # Reuse section
-                expected_answer={"text": f"Answer {qid}"},
-                generation_method="template",
-                metadata={"element_text": f"Element {qid}"}  # Unique element
-            ))
+        for _i in range(7):
+            questions.append(
+                Question(
+                    question_id=f"q_{qid:03d}",
+                    question_text=f"Question {qid}",
+                    category="factual",
+                    difficulty="basic",
+                    scope="section",
+                    target_sections=["section_0"],  # Reuse section
+                    expected_answer={"text": f"Answer {qid}"},
+                    generation_method="template",
+                    metadata={"element_text": f"Element {qid}"},  # Unique element
+                )
+            )
             qid += 1
 
         result = QuestioningResult(questions=questions)
@@ -755,6 +765,7 @@ class TestCoverageCalculation:
 # ============================================================================
 # Test Class 8: Integration Tests
 # ============================================================================
+
 
 class TestQuestioningStepIntegration:
     """Test end-to-end QuestioningStep integration."""
@@ -771,14 +782,8 @@ class TestQuestioningStepIntegration:
                     "difficulty": "basic",
                     "question_pattern": "What format should {element_text} use?",
                     "answer_extraction": {"confidence_threshold": "high", "keywords": ["format"], "context_window": 2},
-                    "triggers": {
-                        "element_types": ["requirement", "constraint"],
-                        "required_keywords": ["format"]
-                    },
-                    "validation_hints": {
-                        "answer_should_contain": ["format"],
-                        "answer_should_not_contain": ["what"]
-                    }
+                    "triggers": {"element_types": ["requirement", "constraint"], "required_keywords": ["format"]},
+                    "validation_hints": {"answer_should_contain": ["format"], "answer_should_not_contain": ["what"]},
                 },
                 {
                     "template_id": "procedural_step_01",
@@ -786,16 +791,10 @@ class TestQuestioningStepIntegration:
                     "difficulty": "basic",
                     "question_pattern": "What is the first step in the process?",
                     "answer_extraction": {"confidence_threshold": "high", "keywords": ["first"], "context_window": 2},
-                    "triggers": {
-                        "element_types": ["step"],
-                        "required_keywords": []
-                    },
-                    "validation_hints": {
-                        "answer_should_contain": [],
-                        "answer_should_not_contain": []
-                    }
-                }
-            ]
+                    "triggers": {"element_types": ["step"], "required_keywords": []},
+                    "validation_hints": {"answer_should_contain": [], "answer_should_not_contain": []},
+                },
+            ],
         }
 
         template_path = tmp_path / "test_templates.json"
@@ -812,29 +811,27 @@ class TestQuestioningStepIntegration:
                 "section_id": "section_1",
                 "title": "Configuration",
                 "content": "The output format must be JSON with proper indentation. All files must use UTF-8 encoding format.",
-                "start_line": 1
+                "start_line": 1,
             },
             {
                 "section_id": "section_2",
                 "title": "Installation",
                 "content": "Follow these steps:\n\nStep 1: Download the installer from the website\nStep 2: Run the setup program\nStep 3: Complete the installation wizard",
-                "start_line": 10
+                "start_line": 10,
             },
             {
                 "section_id": "section_3",
                 "title": "Usage",
                 "content": "The system has several requirements. The maximum file size is 10MB. The processing timeout defaults to 30 seconds.",
-                "start_line": 20
-            }
+                "start_line": 20,
+            },
         ]
 
     def test_end_to_end_question_generation(self, temp_templates, sample_sections, tmp_path):
         """Test complete question generation workflow."""
         step = QuestioningStep(template_path=str(temp_templates))
         result = step.generate_questions(
-            sections=sample_sections,
-            document_text="Sample document text",
-            document_path="test.md"
+            sections=sample_sections, document_text="Sample document text", document_path="test.md"
         )
 
         # Should generate some questions
@@ -854,9 +851,7 @@ class TestQuestioningStepIntegration:
         """Test generating, saving, and loading questions."""
         step = QuestioningStep(template_path=str(temp_templates))
         result = step.generate_questions(
-            sections=sample_sections,
-            document_text="Sample document",
-            document_path="test.md"
+            sections=sample_sections, document_text="Sample document", document_path="test.md"
         )
 
         # Save
@@ -875,9 +870,7 @@ class TestQuestioningStepIntegration:
         # This test would need the actual templates directory structure
 
         result = generate_questions_from_sections(
-            sections=sample_sections,
-            document_text="Sample document",
-            document_path="test.md"
+            sections=sample_sections, document_text="Sample document", document_path="test.md"
         )
 
         assert isinstance(result, QuestioningResult)
@@ -885,23 +878,16 @@ class TestQuestioningStepIntegration:
     def test_empty_sections(self, temp_templates):
         """Test generating questions from empty sections."""
         step = QuestioningStep(template_path=str(temp_templates))
-        result = step.generate_questions(
-            sections=[],
-            document_text="",
-            document_path="empty.md"
-        )
+        result = step.generate_questions(sections=[], document_text="", document_path="empty.md")
 
         assert len(result.questions) == 0
-        assert result.statistics['total_questions'] == 0
+        assert result.statistics["total_questions"] == 0
 
     def test_coverage_selection_with_no_candidates(self, temp_templates):
         """Test coverage selection with no candidate questions."""
         step = QuestioningStep(template_path=str(temp_templates))
         selected = step._select_for_coverage(
-            candidates=[],
-            total_sections=10,
-            total_elements=20,
-            targets={'section_pct': 70.0, 'element_pct': 60.0}
+            candidates=[], total_sections=10, total_elements=20, targets={"section_pct": 70.0, "element_pct": 60.0}
         )
 
         assert selected == []
@@ -913,7 +899,7 @@ class TestQuestioningStepIntegration:
             sections=sample_sections,
             document_text="Sample document",
             document_path="test.md",
-            coverage_targets={'section_pct': 50.0, 'element_pct': 40.0}
+            coverage_targets={"section_pct": 50.0, "element_pct": 40.0},
         )
 
         assert isinstance(result, QuestioningResult)
@@ -922,6 +908,7 @@ class TestQuestioningStepIntegration:
 # ============================================================================
 # Additional Edge Case Tests
 # ============================================================================
+
 
 class TestEdgeCases:
     """Test edge cases and error conditions."""
@@ -934,7 +921,7 @@ class TestEdgeCases:
             answer_text="JSON format",
             response_time_ms=1500,
             raw_response='{"answer": "JSON format"}',
-            confidence_stated="high"
+            confidence_stated="high",
         )
 
         data = answer.to_dict()
@@ -950,7 +937,7 @@ class TestEdgeCases:
             model_name="claude",
             score="correct",
             reasoning="Answer matches expected",
-            evidence="Line 45-46"
+            evidence="Line 45-46",
         )
 
         data = evaluation.to_dict()
@@ -969,14 +956,10 @@ class TestEdgeCases:
             scope="section",
             target_sections=["section_1"],
             expected_answer={"text": "JSON format"},
-            generation_method="template"
+            generation_method="template",
         )
 
-        result = QuestionResult(
-            question=question,
-            consensus="agreement",
-            issue_detected=False
-        )
+        result = QuestionResult(question=question, consensus="agreement", issue_detected=False)
 
         data = result.to_dict()
         reconstructed = QuestionResult.from_dict(data)
@@ -986,12 +969,14 @@ class TestEdgeCases:
 
     def test_element_extractor_with_no_matches(self):
         """Test element extraction when no patterns match."""
-        sections = [{
-            "section_id": "section_1",
-            "title": "Introduction",
-            "content": "This is just plain text without any special patterns.",
-            "start_line": 1
-        }]
+        sections = [
+            {
+                "section_id": "section_1",
+                "title": "Introduction",
+                "content": "This is just plain text without any special patterns.",
+                "start_line": 1,
+            }
+        ]
 
         extractor = ElementExtractor()
         elements = extractor.extract_elements(sections)
@@ -1009,8 +994,8 @@ class TestEdgeCases:
             "answer_extraction": {"confidence_threshold": "high"},
             "triggers": {
                 "element_types": ["constraint"],
-                "required_keywords": ["\\d+"]  # Regex pattern
-            }
+                "required_keywords": ["\\d+"],  # Regex pattern
+            },
         }
 
         element = TestableElement(
@@ -1020,7 +1005,7 @@ class TestEdgeCases:
             section_title="Limits",
             start_line=10,
             end_line=10,
-            context="The system supports 100 items maximum"
+            context="The system supports 100 items maximum",
         )
 
         applicator = TemplateApplicator([template])
@@ -1038,14 +1023,10 @@ class TestEdgeCases:
             section_title="Requirements",
             start_line=10,
             end_line=10,
-            context="Test requirement context"
+            context="Test requirement context",
         )
 
-        is_valid, reason = validator.validate(
-            "What is required?",
-            "",
-            element
-        )
+        is_valid, reason = validator.validate("What is required?", "", element)
 
         # Empty answer might still be answerable if no meaningful words
         # Just verify it returns a result
@@ -1064,7 +1045,7 @@ class TestEdgeCases:
             scope="section",
             target_sections=["section_1"],
             expected_answer={"text": "Test answer"},
-            generation_method="template"
+            generation_method="template",
         )
 
         result.add_question(question)

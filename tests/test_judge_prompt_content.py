@@ -8,7 +8,7 @@ project_root = Path(__file__).resolve().parents[1]
 scripts_src = project_root.joinpath("scripts", "src")
 sys.path.insert(0, scripts_src.as_posix())
 
-from ambiguity_detector import LLMJudgeStrategy, Interpretation
+from ambiguity_detector import Interpretation, LLMJudgeStrategy
 
 
 def make_interpretation(model_name, interpretation, steps=None, assumptions=None, ambiguities=None):
@@ -19,7 +19,7 @@ def make_interpretation(model_name, interpretation, steps=None, assumptions=None
         interpretation=interpretation,
         steps=steps or [],
         assumptions=assumptions or [],
-        ambiguities=ambiguities or []
+        ambiguities=ambiguities or [],
     )
 
 
@@ -120,14 +120,14 @@ class TestBuildComparisonPrompt:
                 "Claude understands it this way",
                 steps=["Parse input", "Process data"],
                 assumptions=["Input is valid JSON"],
-                ambiguities=["What format for dates?"]
+                ambiguities=["What format for dates?"],
             ),
             make_interpretation(
                 "gemini",
                 "Gemini sees it differently",
                 steps=["Read file", "Extract info"],
                 assumptions=["File exists"],
-                ambiguities=["Which encoding to use?"]
+                ambiguities=["Which encoding to use?"],
             ),
         ]
 

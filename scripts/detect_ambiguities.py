@@ -10,33 +10,33 @@ Usage:
 
 import argparse
 import sys
-import yaml
 from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent / 'src'))
+import yaml
 
-from testing_step import TestingResult
-from detection_step import DetectionStep
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent / "src"))
+
 from ambiguity_detector import JudgeFailureError
+from detection_step import DetectionStep
+from testing_step import TestingResult
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Detect ambiguities from model test results',
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        description="Detect ambiguities from model test results", formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument('test_results_file', help='Path to test_results.json')
-    parser.add_argument('--config', default='config.yaml',
-                       help='Path to config file (default: config.yaml)')
-    parser.add_argument('--judge', default='claude',
-                       help='Judge model name (default: claude)')
-    parser.add_argument('--strategy', default='llm_judge',
-                       choices=['llm_judge', 'simple'],
-                       help='Detection strategy (default: llm_judge)')
-    parser.add_argument('--output', default='ambiguities.json',
-                       help='Output JSON file (default: ambiguities.json)')
-    parser.add_argument('--workspace', help='Workspace directory (optional)')
+    parser.add_argument("test_results_file", help="Path to test_results.json")
+    parser.add_argument("--config", default="config.yaml", help="Path to config file (default: config.yaml)")
+    parser.add_argument("--judge", default="claude", help="Judge model name (default: claude)")
+    parser.add_argument(
+        "--strategy",
+        default="llm_judge",
+        choices=["llm_judge", "simple"],
+        help="Detection strategy (default: llm_judge)",
+    )
+    parser.add_argument("--output", default="ambiguities.json", help="Output JSON file (default: ambiguities.json)")
+    parser.add_argument("--workspace", help="Workspace directory (optional)")
 
     args = parser.parse_args()
 
@@ -67,28 +67,25 @@ def main():
 
     print(f"Detecting ambiguities in {len(testing_result.test_results)} sections...")
     print(f"Strategy: {args.strategy}")
-    if args.strategy == 'llm_judge':
+    if args.strategy == "llm_judge":
         print(f"Judge model: {args.judge}")
 
     # Detect ambiguities
     try:
         step = DetectionStep(
-            strategy=args.strategy,
-            judge_model=args.judge,
-            models_config=config['models'],
-            workspace=workspace
+            strategy=args.strategy, judge_model=args.judge, models_config=config["models"], workspace=workspace
         )
         result = step.detect(testing_result.test_results)
 
         # Save and report
         result.save(str(output_path))
 
-        print(f"\nDetection complete!")
+        print("\nDetection complete!")
         print(f"Ambiguities found: {len(result.ambiguities)}")
         if result.severity_counts:
             print("Breakdown:")
             for severity, count in result.severity_counts.items():
-                emoji = {'critical': '🔴', 'high': '🟠', 'medium': '🟡', 'low': '🟢'}.get(severity, '⚪')
+                emoji = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(severity, "⚪")
                 print(f"  {emoji} {severity}: {count}")
 
         print(f"\nSaved to: {output_path}")
@@ -96,21 +93,22 @@ def main():
         return 0
 
     except JudgeFailureError as e:
-        print(f"\n{'='*60}", file=sys.stderr)
-        print(f"❌ JUDGE COMPARISON FAILED", file=sys.stderr)
-        print(f"{'='*60}", file=sys.stderr)
+        print(f"\n{'=' * 60}", file=sys.stderr)
+        print("❌ JUDGE COMPARISON FAILED", file=sys.stderr)
+        print(f"{'=' * 60}", file=sys.stderr)
         print(f"Section: {e.section_id}", file=sys.stderr)
         print(f"Reason: {e.reason}", file=sys.stderr)
         if e.details:
             print(f"Details: {e.details}", file=sys.stderr)
-        print(f"{'='*60}\n", file=sys.stderr)
+        print(f"{'=' * 60}\n", file=sys.stderr)
         return 1
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         import traceback
+
         traceback.print_exc()
         return 1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())
