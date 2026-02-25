@@ -13,21 +13,6 @@
 - [P1] [✓] Exercise 4: Authoring guide - Created docs/bulky/BULKY_FORMAT_GUIDE.md (comprehensive 800+ line guide): Format reference (@meta blocks, @assertion wrappers with id/type/priority attributes), assertion writing guidelines (single concept, clear/explicit, testable, contextual), 5 detailed examples (requirement, constraint, sequence, behavior, error), workflow (write bulky → strip → test → iterate → update metadata), best practices (DOs/DON'Ts, common pitfalls), tool-agnostic design rationale (HTML comments work in any editor) - Assertion types: requirement, constraint, behavior, sequence, error - Priority levels: critical/high/medium/low with impact guidance - ID naming convention: section_concept_detail - Covers complete authoring workflow from creation to testing to iteration `2026-01-11` #bulky-clean #week1 #exercise4
 
 ### Pipeline Architecture
-- [P1] [ ] Fix half-step numbering across entire pipeline `2025-12-28` #architecture #refactor #clarity
-  - **Problem**: Current steps use confusing decimal numbering (Step 1.5, Step 4-5) that makes sequence unclear
-  - **Current state**: Step 1 (Extraction), Step 1.5 (Session Init), Step 2 (Testing), Step 3 (Detection), Step 4-5 (Reporting), Step 5 (Questioning) ✅
-  - **Target state**: Step 1 (Extraction), Step 2 (Session Init), Step 3 (Testing), Step 4 (Detection), Step 5 (Questioning), Step 6 (Reporting)
-  - **Files to update**:
-    - `scripts/src/session_init_step.py` - docstring "Step 1.5" → "Step 2"
-    - `scripts/src/testing_step.py` - docstring "Step 2" → "Step 3"
-    - `scripts/src/detection_step.py` - docstring "Step 3" → "Step 4"
-    - `scripts/src/reporting_step.py` - docstring "Step 4-5" → "Step 6"
-    - ~~`scripts/src/questioning_step.py` - already "Step 5" ✅~~
-    - `docs/QUESTION_BASED_TESTING_FRAMEWORK.md` - update pipeline diagrams
-    - Any other references in comments/docs
-  - **Testing**: All existing tests should pass, no functional changes
-  - **Benefit**: Clear, unambiguous step sequence
-  - **Note**: questioning_step.py already uses correct "Step 5" numbering
 
 ### Other Active Tasks
 - [P2] [ ] Test remaining context dependency documents (abbreviations, prerequisites, constraints, comprehensive) `2025-12-12` #testing #session-management
@@ -75,6 +60,8 @@
 
 ## Completed
 
+- [P1] [✓] Intermediate result saving with --resume flag - `TestingStep.test_sections` now saves `test_results_partial.json` after each section using os.fsync for durability. On crash, re-running with `--resume` skips already-completed sections. Partial file cleaned up on successful completion. Corrupt partial handled gracefully. Added `--resume` CLI flag to polish.py. 5 new tests in test_intermediate_saves.py (132 total). - PR #33 `2026-02-25` #feature #resilience #crash-recovery
+- [P1] [✓] Fix half-step numbering across entire pipeline - Renumbered steps from 1/1.5/2/3/4 to sequential 1/2/3/4/5 across scripts/polish.py, session_init_step.py, testing_step.py, detection_step.py, reporting_step.py. No functional changes, pure string/docstring updates. All 132 tests passing. - PR #32 `2026-02-25` #architecture #refactor #clarity
 - [P1] [✓] Implement Question-Based Testing Framework (Phase 1 & 2) - Created questioning_step.py (~1,000 LOC: 6 dataclasses, ElementExtractor with 8 regex patterns, TemplateApplicator with 14 templates, QuestionValidator with 4 rules, coverage calculation), question_templates.json (14 templates across 5 categories), generate_questions.py CLI (~300 LOC: generate/validate/coverage commands), test_questioning_step.py (47 tests, 85% coverage) - Generates targeted questions with 70% section coverage, 60% element coverage targets - Template-based generation (no LLM calls, deterministic) - Fixed 2 Codex review bugs (element coverage counting, short answer leakage detection) - All 127 tests passing (80 original + 47 new) - PR #26 `2025-12-28` #question-testing #phase1 #phase2 #feature
 - [P3] [✓] Review shared ambiguity severity calculation: should it use total participating models or only models that noted ambiguities? (Currently uses total participating models) - Confirmed current implementation is correct - Total model count represents sample size for consensus `2025-12-28` #improvement #edge-case
 - [P2] [✓] Flag sections where models agree but both noted same ambiguity - Implemented shared ambiguity detection using LLM judge semantic understanding (not keyword matching) - Updated judge prompt to ask about shared concerns, added shared_ambiguities/shared_concerns fields to response, added third detection condition - Severity: MEDIUM for ≥3 models, LOW otherwise - Created 7 comprehensive tests - All 80 tests passing (73 original + 7 new) - 41 lines added to production code - Codex review: Approved with minor suggestions - PR #TBD `2025-12-28` #improvement #edge-case #llm-judge
