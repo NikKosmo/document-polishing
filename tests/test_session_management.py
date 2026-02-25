@@ -1,19 +1,18 @@
 """Unit tests for session management functionality"""
 
-import unittest
-from unittest.mock import Mock, patch, MagicMock
 import subprocess
 import sys
+import unittest
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts" / "src"))
 
 from session_handlers import (
-    BaseSessionHandler,
     ClaudeSessionHandler,
-    GeminiSessionHandler,
     CodexSessionHandler,
+    GeminiSessionHandler,
     SessionCreationError,
     SessionLostError,
     SessionQueryError,
@@ -171,7 +170,7 @@ class TestGeminiSessionHandler(unittest.TestCase):
             stderr="",
         )
 
-        result = self.handler.query_session("latest", "Test prompt")
+        self.handler.query_session("latest", "Test prompt")
 
         # Verify command uses -r latest
         call_args = mock_run.call_args[0][0]

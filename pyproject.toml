@@ -1,0 +1,35 @@
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "F",     # Pyflakes (unused imports, undefined names, dead code)
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "I",     # isort (import sorting)
+    "B",     # flake8-bugbear (common bugs)
+]
+ignore = [
+    "E501",  # line-too-long (long prompt strings are intentional)
+    "B904",  # raise-without-from-inside-except (style choice)
+    "E402",  # module-import-not-at-top (sys.path setup required for scripts/src/)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+include = ["scripts/src"]
+venvPath = "."
+venv = ".venv"
+reportOptionalMemberAccess = "warning"
+reportArgumentType = "warning"
+reportAttributeAccessIssue = "warning"

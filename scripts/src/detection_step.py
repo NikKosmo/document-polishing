@@ -9,22 +9,17 @@ disagreements between model interpretations.
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Callable
 from pathlib import Path
+from typing import Callable, Dict, List, Optional
 
-from ambiguity_detector import (
-    AmbiguityDetector,
-    Ambiguity,
-    Severity,
-    JudgeFailureError
-)
+from ambiguity_detector import Ambiguity, AmbiguityDetector, JudgeFailureError, Severity
 from model_interface import ModelManager
 
 
 # Setup judge logger
 def _setup_judge_logger(workspace: Path):
     """Setup logger for judge responses"""
-    judge_logger = logging.getLogger('judge_responses')
+    judge_logger = logging.getLogger("judge_responses")
     judge_logger.setLevel(logging.INFO)
 
     # Remove existing handlers
@@ -33,7 +28,7 @@ def _setup_judge_logger(workspace: Path):
     # Add file handler
     log_file = workspace / "judge_responses.log"
     handler = logging.FileHandler(log_file)
-    handler.setFormatter(logging.Formatter('%(message)s'))
+    handler.setFormatter(logging.Formatter("%(message)s"))
     judge_logger.addHandler(handler)
 
     return judge_logger
@@ -47,6 +42,7 @@ class DetectionResult:
     Contains detected ambiguities, severity counts, and metadata about
     the detection strategy used.
     """
+
     ambiguities: List[Ambiguity] = field(default_factory=list)
     severity_counts: Dict[str, int] = field(default_factory=dict)
     strategy: str = "llm_judge"
@@ -64,11 +60,11 @@ class DetectionResult:
 
         ambiguities_data = [amb.to_dict() for amb in self.ambiguities]
 
-        with open(output_file, 'w', encoding='utf-8') as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             json.dump(ambiguities_data, f, indent=2, ensure_ascii=False)
 
     @classmethod
-    def load(cls, input_path: str) -> 'DetectionResult':
+    def load(cls, input_path: str) -> "DetectionResult":
         """
         Load ambiguities from JSON file.
 
@@ -88,31 +84,33 @@ class DetectionResult:
         if not input_file.exists():
             raise FileNotFoundError(f"Ambiguities file not found: {input_path}")
 
-        with open(input_file, 'r', encoding='utf-8') as f:
+        with open(input_file, "r", encoding="utf-8") as f:
             ambiguities_data = json.load(f)
 
         # Convert JSON to Ambiguity objects
         ambiguities = []
         for amb_data in ambiguities_data:
             interpretations = {}
-            for model_name, interp_data in amb_data['interpretations'].items():
+            for model_name, interp_data in amb_data["interpretations"].items():
                 interpretations[model_name] = Interpretation(
                     model_name=model_name,
                     raw_response="",
-                    interpretation=interp_data.get('interpretation', ''),
-                    steps=interp_data.get('steps', []),
-                    assumptions=interp_data.get('assumptions', []),
-                    ambiguities=interp_data.get('ambiguities', [])
+                    interpretation=interp_data.get("interpretation", ""),
+                    steps=interp_data.get("steps", []),
+                    assumptions=interp_data.get("assumptions", []),
+                    ambiguities=interp_data.get("ambiguities", []),
                 )
 
-            ambiguities.append(Ambiguity(
-                section_id=amb_data['section_id'],
-                section_header=amb_data['section_header'],
-                section_content=amb_data['section_content'],
-                severity=Severity(amb_data['severity']),
-                interpretations=interpretations,
-                comparison_details=amb_data.get('comparison_details', {})
-            ))
+            ambiguities.append(
+                Ambiguity(
+                    section_id=amb_data["section_id"],
+                    section_header=amb_data["section_header"],
+                    section_content=amb_data["section_content"],
+                    severity=Severity(amb_data["severity"]),
+                    interpretations=interpretations,
+                    comparison_details=amb_data.get("comparison_details", {}),
+                )
+            )
 
         # Calculate severity counts
         severity_counts = {}
@@ -124,7 +122,7 @@ class DetectionResult:
             ambiguities=ambiguities,
             severity_counts=severity_counts,
             strategy="unknown",  # Can't determine from saved file
-            judge_model=None
+            judge_model=None,
         )
 
 
@@ -143,11 +141,11 @@ class DetectionStep:
 
     def __init__(
         self,
-        strategy: str = 'llm_judge',
-        judge_model: str = 'claude',
+        strategy: str = "llm_judge",
+        judge_model: str = "claude",
         models_config: Dict = None,
         session_manager=None,
-        workspace: Path = None
+        workspace: Path = None,
     ):
         """
         Initialize detection step.
@@ -170,7 +168,7 @@ class DetectionStep:
 
         # Initialize model manager if needed for judge queries
         self.model_manager = None
-        if strategy == 'llm_judge' and models_config:
+        if strategy == "llm_judge" and models_config:
             self.model_manager = ModelManager(models_config, {})
             if session_manager:
                 self.model_manager.session_manager = session_manager
@@ -205,22 +203,16 @@ class DetectionStep:
                               This triggers fail-fast behavior - caller should stop processing.
         """
         # Create ambiguity detector with appropriate strategy
-        if self.strategy == 'llm_judge':
+        if self.strategy == "llm_judge":
             if not self.model_manager:
                 raise ValueError("Model manager required for llm_judge strategy")
 
             if self.judge_model not in self.model_manager.list_available():
                 raise ValueError(f"Judge model '{self.judge_model}' not available")
 
-            detector = AmbiguityDetector(
-                strategy='llm_judge',
-                llm_query_func=self._create_judge_query_func()
-            )
-        elif self.strategy == 'simple':
-            detector = AmbiguityDetector(
-                strategy='simple',
-                similarity_threshold=0.7
-            )
+            detector = AmbiguityDetector(strategy="llm_judge", llm_query_func=self._create_judge_query_func())
+        elif self.strategy == "simple":
+            detector = AmbiguityDetector(strategy="simple", similarity_threshold=0.7)
         else:
             raise ValueError(f"Unknown strategy: {self.strategy}")
 
@@ -237,16 +229,13 @@ class DetectionStep:
             ambiguities=ambiguities,
             severity_counts=severity_counts,
             strategy=self.strategy,
-            judge_model=self.judge_model if self.strategy == 'llm_judge' else None
+            judge_model=self.judge_model if self.strategy == "llm_judge" else None,
         )
 
 
 # Convenience function for simple usage
 def detect_ambiguities_in_results(
-    test_results: Dict[str, Dict],
-    strategy: str = 'llm_judge',
-    judge_model: str = 'claude',
-    models_config: Dict = None
+    test_results: Dict[str, Dict], strategy: str = "llm_judge", judge_model: str = "claude", models_config: Dict = None
 ) -> DetectionResult:
     """
     Detect ambiguities in test results (convenience function).
@@ -268,8 +257,9 @@ def detect_ambiguities_in_results(
 
 
 # For testing the module directly
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
+
     import yaml
 
     if len(sys.argv) < 2:
@@ -278,16 +268,16 @@ if __name__ == '__main__':
         sys.exit(1)
 
     test_results_file = sys.argv[1]
-    config_file = sys.argv[2] if len(sys.argv) > 2 else 'config.yaml'
-    judge_model = sys.argv[3] if len(sys.argv) > 3 else 'claude'
-    output_file = sys.argv[4] if len(sys.argv) > 4 else 'ambiguities.json'
+    config_file = sys.argv[2] if len(sys.argv) > 2 else "config.yaml"
+    judge_model = sys.argv[3] if len(sys.argv) > 3 else "claude"
+    output_file = sys.argv[4] if len(sys.argv) > 4 else "ambiguities.json"
 
     # Load test results
-    with open(test_results_file, 'r') as f:
+    with open(test_results_file, "r") as f:
         test_results = json.load(f)
 
     # Load config
-    with open(config_file, 'r') as f:
+    with open(config_file, "r") as f:
         config = yaml.safe_load(f)
 
     print(f"Detecting ambiguities in {len(test_results)} sections...")
@@ -295,20 +285,20 @@ if __name__ == '__main__':
 
     # Detect ambiguities
     try:
-        step = DetectionStep('llm_judge', judge_model, config['models'])
+        step = DetectionStep("llm_judge", judge_model, config["models"])
         result = step.detect(test_results)
 
         # Save results
         result.save(output_file)
 
-        print(f"\nDetection complete!")
+        print("\nDetection complete!")
         print(f"Ambiguities found: {len(result.ambiguities)}")
         if result.severity_counts:
             print(f"Breakdown: {', '.join(f'{k}: {v}' for k, v in result.severity_counts.items())}")
         print(f"Results saved to: {output_file}")
 
     except JudgeFailureError as e:
-        print(f"\nERROR: Judge comparison failed!")
+        print("\nERROR: Judge comparison failed!")
         print(f"Section: {e.section_id}")
         print(f"Reason: {e.reason}")
         if e.details:

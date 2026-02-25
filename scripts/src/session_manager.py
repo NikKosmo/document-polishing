@@ -1,8 +1,8 @@
 """Session Manager - Orchestrates model sessions for document-level context"""
 
-import logging
 import concurrent.futures
-from typing import Dict, Any, Optional
+import logging
+from typing import Any, Dict, Optional
 
 from session_handlers import (
     BaseSessionHandler,
@@ -11,7 +11,6 @@ from session_handlers import (
     SessionQueryError,
     get_session_handler,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -83,9 +82,7 @@ class SessionManager:
             logger.error(f"Failed to create session for {model_name}: {e}")
             raise
 
-    def init_sessions_parallel(
-        self, model_names: list, document: str, purpose: str = None
-    ) -> Dict[str, str]:
+    def init_sessions_parallel(self, model_names: list, document: str, purpose: str = None) -> Dict[str, str]:
         """
         Create sessions for multiple models in parallel.
 
@@ -103,8 +100,7 @@ class SessionManager:
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = {
-                executor.submit(self.init_session, model, document, self._purpose): model
-                for model in model_names
+                executor.submit(self.init_session, model, document, self._purpose): model for model in model_names
             }
             for future in concurrent.futures.as_completed(futures):
                 model = futures[future]
@@ -162,6 +158,7 @@ class SessionManager:
                     raise
                 logger.warning(f"{model_name} query failed, retrying ({retries}/{self.max_retries})...")
                 import time
+
                 time.sleep(self.retry_delay)
 
         raise SessionQueryError(f"Query failed after {self.max_retries} retries")

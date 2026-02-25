@@ -7,8 +7,8 @@ It initializes model sessions with full document context to improve interpretati
 
 import json
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional
 from pathlib import Path
+from typing import Dict, List, Optional
 
 from session_manager import SessionManager
 
@@ -21,6 +21,7 @@ class SessionInitResult:
     Contains session IDs for successfully initialized models, list of failed models,
     the SessionManager instance, and whether sessions are enabled.
     """
+
     session_ids: Dict[str, str] = field(default_factory=dict)
     failed_models: List[str] = field(default_factory=list)
     session_manager: Optional[SessionManager] = None
@@ -38,17 +39,13 @@ class SessionInitResult:
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
-        data = {
-            'session_ids': self.session_ids,
-            'failed_models': self.failed_models,
-            'enabled': self.enabled
-        }
+        data = {"session_ids": self.session_ids, "failed_models": self.failed_models, "enabled": self.enabled}
 
-        with open(output_file, 'w', encoding='utf-8') as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
     @classmethod
-    def load(cls, input_path: str) -> 'SessionInitResult':
+    def load(cls, input_path: str) -> "SessionInitResult":
         """
         Load session metadata from JSON file.
 
@@ -69,14 +66,14 @@ class SessionInitResult:
         if not input_file.exists():
             raise FileNotFoundError(f"Session metadata not found: {input_path}")
 
-        with open(input_file, 'r', encoding='utf-8') as f:
+        with open(input_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         return cls(
-            session_ids=data.get('session_ids', {}),
-            failed_models=data.get('failed_models', []),
+            session_ids=data.get("session_ids", {}),
+            failed_models=data.get("failed_models", []),
             session_manager=None,  # Cannot reconstruct from saved file
-            enabled=data.get('enabled', True)
+            enabled=data.get("enabled", True),
         )
 
 
@@ -103,13 +100,10 @@ class SessionInitStep:
         """
         self.models_config = models_config
         self.session_config = session_config
-        self.enabled = session_config.get('enabled', False)
+        self.enabled = session_config.get("enabled", False)
 
     def init_sessions(
-        self,
-        document_content: str,
-        model_names: List[str],
-        purpose_prompt: str = None
+        self, document_content: str, model_names: List[str], purpose_prompt: str = None
     ) -> SessionInitResult:
         """
         Initialize sessions for specified models with document context.
@@ -128,48 +122,32 @@ class SessionInitStep:
         """
         # Check if sessions are enabled
         if not self.enabled:
-            return SessionInitResult(
-                session_ids={},
-                failed_models=[],
-                session_manager=None,
-                enabled=False
-            )
+            return SessionInitResult(session_ids={}, failed_models=[], session_manager=None, enabled=False)
 
         # Use configured purpose prompt if not provided
         if purpose_prompt is None:
             purpose_prompt = self.session_config.get(
-                'purpose_prompt',
-                'This document defines standards and requirements. Please analyze sections within this context.'
+                "purpose_prompt",
+                "This document defines standards and requirements. Please analyze sections within this context.",
             )
 
         # Create session manager
         session_manager = SessionManager(self.models_config, self.session_config)
 
         # Initialize sessions in parallel
-        session_results = session_manager.init_sessions_parallel(
-            model_names,
-            document_content,
-            purpose_prompt
-        )
+        session_results = session_manager.init_sessions_parallel(model_names, document_content, purpose_prompt)
 
         # Determine which models failed
         failed_models = list(set(model_names) - set(session_results.keys()))
 
         return SessionInitResult(
-            session_ids=session_results,
-            failed_models=failed_models,
-            session_manager=session_manager,
-            enabled=True
+            session_ids=session_results, failed_models=failed_models, session_manager=session_manager, enabled=True
         )
 
 
 # Convenience function for simple usage
 def initialize_model_sessions(
-    document_content: str,
-    model_names: List[str],
-    models_config: Dict,
-    session_config: Dict,
-    purpose_prompt: str = None
+    document_content: str, model_names: List[str], models_config: Dict, session_config: Dict, purpose_prompt: str = None
 ) -> SessionInitResult:
     """
     Initialize model sessions (convenience function).
@@ -189,8 +167,9 @@ def initialize_model_sessions(
 
 
 # For testing the module directly
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
+
     import yaml
 
     if len(sys.argv) < 3:
@@ -199,21 +178,21 @@ if __name__ == '__main__':
         sys.exit(1)
 
     document_file = sys.argv[1]
-    model_names = [m.strip() for m in sys.argv[2].split(',')]
-    config_file = sys.argv[3] if len(sys.argv) > 3 else 'config.yaml'
-    output_file = sys.argv[4] if len(sys.argv) > 4 else 'session_metadata.json'
+    model_names = [m.strip() for m in sys.argv[2].split(",")]
+    config_file = sys.argv[3] if len(sys.argv) > 3 else "config.yaml"
+    output_file = sys.argv[4] if len(sys.argv) > 4 else "session_metadata.json"
 
     # Read document
-    with open(document_file, 'r') as f:
+    with open(document_file, "r") as f:
         document_content = f.read()
 
     # Load config
-    with open(config_file, 'r') as f:
+    with open(config_file, "r") as f:
         config = yaml.safe_load(f)
 
     # Check if sessions are enabled
-    session_config = config.get('session_management', {})
-    if not session_config.get('enabled', False):
+    session_config = config.get("session_management", {})
+    if not session_config.get("enabled", False):
         print("Session management is disabled in config.")
         print("Set session_management.enabled: true in config.yaml to use sessions.")
         sys.exit(1)
@@ -222,13 +201,13 @@ if __name__ == '__main__':
     print(f"Document: {document_file}")
 
     # Initialize sessions
-    step = SessionInitStep(config['models'], session_config)
+    step = SessionInitStep(config["models"], session_config)
     result = step.init_sessions(document_content, model_names)
 
     # Save metadata
     result.save(output_file)
 
-    print(f"\nSession initialization complete!")
+    print("\nSession initialization complete!")
     print(f"Successful: {len(result.session_ids)}")
     for model, session_id in result.session_ids.items():
         print(f"  {model}: {session_id[:16]}...")

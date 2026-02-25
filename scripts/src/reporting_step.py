@@ -6,12 +6,12 @@ It generates formatted markdown reports from ambiguity detection results and cre
 polished versions of documents with clarification markers.
 """
 
-from datetime import datetime
-from typing import List, Dict, Optional
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
+from typing import Dict, List, Optional
 
-from ambiguity_detector import Severity, Ambiguity
+from ambiguity_detector import Ambiguity, Severity
 
 
 @dataclass
@@ -22,6 +22,7 @@ class ReportingResult:
     Contains the generated report content, optional polished document content,
     and count of ambiguities found.
     """
+
     report_content: str
     polished_content: Optional[str] = None
     ambiguities_found: int = 0
@@ -36,7 +37,7 @@ class ReportingResult:
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(output_file, 'w', encoding='utf-8') as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             f.write(self.report_content)
 
     def save_polished(self, output_path: str):
@@ -55,7 +56,7 @@ class ReportingResult:
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(output_file, 'w', encoding='utf-8') as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             f.write(self.polished_content)
 
 
@@ -72,7 +73,7 @@ class ReportingStep:
         polished = step.generate_polished_document(document_content, ambiguities)
     """
 
-    def __init__(self, session_id: str, document_path: str, judge_model: str = 'claude'):
+    def __init__(self, session_id: str, document_path: str, judge_model: str = "claude"):
         """
         Initialize reporting step.
 
@@ -86,10 +87,7 @@ class ReportingStep:
         self.judge_model = judge_model
 
     def generate_report(
-        self,
-        test_results: Dict[str, Dict],
-        ambiguities: List[Ambiguity],
-        model_names: List[str]
+        self, test_results: Dict[str, Dict], ambiguities: List[Ambiguity], model_names: List[str]
     ) -> str:
         """
         Generate markdown report from ambiguity detection results.
@@ -106,14 +104,14 @@ class ReportingStep:
 
 **Session ID:** {self.session_id}
 **Document:** {self.document_path}
-**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+**Date:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 **Judge Model:** {self.judge_model}
 
 ## Summary
 
 - **Sections Tested:** {len(test_results)}
 - **Ambiguities Found:** {len(ambiguities)}
-- **Models Used:** {', '.join(model_names)}
+- **Models Used:** {", ".join(model_names)}
 
 ### Ambiguities by Severity
 
@@ -124,7 +122,7 @@ class ReportingStep:
             severity_counts[amb.severity.value] += 1
 
         for sev, count in severity_counts.items():
-            emoji = {'critical': '🔴', 'high': '🟠', 'medium': '🟡', 'low': '🟢'}.get(sev, '⚪')
+            emoji = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(sev, "⚪")
             report += f"- {emoji} **{sev.upper()}:** {count}\n"
 
         report += "\n## Ambiguities Detected\n\n"
@@ -134,11 +132,11 @@ class ReportingStep:
         else:
             for i, amb in enumerate(ambiguities, 1):
                 severity_emoji = {
-                    Severity.CRITICAL: '🔴',
-                    Severity.HIGH: '🟠',
-                    Severity.MEDIUM: '🟡',
-                    Severity.LOW: '🟢'
-                }.get(amb.severity, '⚪')
+                    Severity.CRITICAL: "🔴",
+                    Severity.HIGH: "🟠",
+                    Severity.MEDIUM: "🟡",
+                    Severity.LOW: "🟢",
+                }.get(amb.severity, "⚪")
 
                 report += f"### {i}. {amb.section_header} {severity_emoji} ({amb.severity.value})\n\n"
                 report += f"**Original Text:**\n```\n{amb.section_content[:500]}\n```\n\n"
@@ -156,20 +154,20 @@ class ReportingStep:
 
                 # Add comparison details
                 if amb.comparison_details:
-                    report += f"\n**Analysis:**\n"
-                    details = amb.comparison_details.get('details', '')
+                    report += "\n**Analysis:**\n"
+                    details = amb.comparison_details.get("details", "")
                     if details:
                         report += f"- {details}\n"
 
-                    key_diffs = amb.comparison_details.get('key_differences', [])
+                    key_diffs = amb.comparison_details.get("key_differences", [])
                     if key_diffs:
                         report += f"- Key differences: {', '.join(key_diffs)}\n"
 
                     # Show shared concerns if present
-                    if amb.comparison_details.get('reason') == 'Models agreed but all noted similar concerns':
-                        shared_concerns = amb.comparison_details.get('shared_concerns', [])
+                    if amb.comparison_details.get("reason") == "Models agreed but all noted similar concerns":
+                        shared_concerns = amb.comparison_details.get("shared_concerns", [])
                         if shared_concerns:
-                            report += f"\n**Shared Concerns:**\n"
+                            report += "\n**Shared Concerns:**\n"
                             for concern in shared_concerns:
                                 report += f"- {concern}\n"
 
@@ -181,11 +179,7 @@ class ReportingStep:
 
         return report
 
-    def generate_polished_document(
-        self,
-        document_content: str,
-        ambiguities: List[Ambiguity]
-    ) -> str:
+    def generate_polished_document(self, document_content: str, ambiguities: List[Ambiguity]) -> str:
         """
         Create polished version of document with clarification markers.
 
@@ -209,11 +203,11 @@ class ReportingStep:
 
             # Create clarification note based on severity
             severity_marker = {
-                Severity.CRITICAL: '🔴 CRITICAL',
-                Severity.HIGH: '🟠 HIGH',
-                Severity.MEDIUM: '🟡 MEDIUM',
-                Severity.LOW: '🟢 LOW'
-            }.get(amb.severity, '⚠️')
+                Severity.CRITICAL: "🔴 CRITICAL",
+                Severity.HIGH: "🟠 HIGH",
+                Severity.MEDIUM: "🟡 MEDIUM",
+                Severity.LOW: "🟢 LOW",
+            }.get(amb.severity, "⚠️")
 
             clarification = f"\n\n> **{severity_marker} - CLARIFICATION NEEDED:**\n"
             clarification += "> Different interpretations were found:\n"
@@ -225,7 +219,7 @@ class ReportingStep:
                 clarification += f"> - **{model_name}:** {short_interp}\n"
 
             # Add key differences if available
-            key_diffs = amb.comparison_details.get('key_differences', [])
+            key_diffs = amb.comparison_details.get("key_differences", [])
             if key_diffs:
                 clarification += f">\n> **Key differences:** {', '.join(key_diffs)}\n"
 
@@ -237,9 +231,9 @@ class ReportingStep:
 
 
 # For testing the module directly
-if __name__ == '__main__':
-    import sys
+if __name__ == "__main__":
     import json
+    import sys
 
     if len(sys.argv) < 4:
         print("Usage: python reporting_step.py <test_results.json> <ambiguities.json> <document.md> [output_report.md]")
@@ -248,57 +242,60 @@ if __name__ == '__main__':
     test_results_file = sys.argv[1]
     ambiguities_file = sys.argv[2]
     document_file = sys.argv[3]
-    output_report = sys.argv[4] if len(sys.argv) > 4 else 'report.md'
+    output_report = sys.argv[4] if len(sys.argv) > 4 else "report.md"
 
     # Load test results
-    with open(test_results_file, 'r') as f:
+    with open(test_results_file, "r") as f:
         test_results = json.load(f)
 
     # Load ambiguities
-    with open(ambiguities_file, 'r') as f:
+    with open(ambiguities_file, "r") as f:
         ambiguities_data = json.load(f)
 
     # Convert ambiguities JSON to Ambiguity objects
     from ambiguity_detector import Interpretation
+
     ambiguities = []
     for amb_data in ambiguities_data:
         interpretations = {}
-        for model_name, interp_data in amb_data['interpretations'].items():
+        for model_name, interp_data in amb_data["interpretations"].items():
             interpretations[model_name] = Interpretation(
                 model_name=model_name,
                 raw_response="",
-                interpretation=interp_data.get('interpretation', ''),
-                steps=interp_data.get('steps', []),
-                assumptions=interp_data.get('assumptions', []),
-                ambiguities=interp_data.get('ambiguities', [])
+                interpretation=interp_data.get("interpretation", ""),
+                steps=interp_data.get("steps", []),
+                assumptions=interp_data.get("assumptions", []),
+                ambiguities=interp_data.get("ambiguities", []),
             )
 
-        ambiguities.append(Ambiguity(
-            section_id=amb_data['section_id'],
-            section_header=amb_data['section_header'],
-            section_content=amb_data['section_content'],
-            severity=Severity(amb_data['severity']),
-            interpretations=interpretations,
-            comparison_details=amb_data.get('comparison_details', {})
-        ))
+        ambiguities.append(
+            Ambiguity(
+                section_id=amb_data["section_id"],
+                section_header=amb_data["section_header"],
+                section_content=amb_data["section_content"],
+                severity=Severity(amb_data["severity"]),
+                interpretations=interpretations,
+                comparison_details=amb_data.get("comparison_details", {}),
+            )
+        )
 
     # Read document
-    with open(document_file, 'r') as f:
+    with open(document_file, "r") as f:
         document_content = f.read()
 
     # Extract model names from test results
     model_names = []
     for section_data in test_results.values():
-        if 'results' in section_data:
-            model_names = list(section_data['results'].keys())
+        if "results" in section_data:
+            model_names = list(section_data["results"].keys())
             break
 
     # Generate report
-    step = ReportingStep('test_session', document_file, 'claude')
+    step = ReportingStep("test_session", document_file, "claude")
     report_content = step.generate_report(test_results, ambiguities, model_names)
 
     # Save report
-    with open(output_report, 'w') as f:
+    with open(output_report, "w") as f:
         f.write(report_content)
 
     print(f"Report generated: {output_report}")

@@ -10,15 +10,15 @@ Generates questions.json artifact for later evaluation (Phase 4).
 
 import json
 import re
-from dataclasses import dataclass, field, asdict
-from typing import List, Dict, Optional, Any, Tuple
-from pathlib import Path
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
-
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 # ============================================================================
 # Phase 1: Core Dataclasses
 # ============================================================================
+
 
 @dataclass
 class Question:
@@ -28,16 +28,17 @@ class Question:
     Represents a generated question that can be asked about a documentation section.
     Includes expected answer, metadata about generation method, and classification.
     """
-    question_id: str                      # Format: q_001, q_002, etc.
-    question_text: str                    # The actual question
-    category: str                         # factual|procedural|conditional|quantitative|existence
-    difficulty: str                       # basic|intermediate|advanced|expert
-    scope: str                            # section (Phase 2), document (Phase 3+)
-    target_sections: List[str]            # Section IDs this question targets
-    expected_answer: Dict[str, Any]       # {text: str, source_lines: List[int], confidence: str}
-    generation_method: str                # template|llm|hybrid
-    template_id: Optional[str] = None     # ID of template used (if template-based)
-    is_adversarial: bool = False          # Whether this is an adversarial question
+
+    question_id: str  # Format: q_001, q_002, etc.
+    question_text: str  # The actual question
+    category: str  # factual|procedural|conditional|quantitative|existence
+    difficulty: str  # basic|intermediate|advanced|expert
+    scope: str  # section (Phase 2), document (Phase 3+)
+    target_sections: List[str]  # Section IDs this question targets
+    expected_answer: Dict[str, Any]  # {text: str, source_lines: List[int], confidence: str}
+    generation_method: str  # template|llm|hybrid
+    template_id: Optional[str] = None  # ID of template used (if template-based)
+    is_adversarial: bool = False  # Whether this is an adversarial question
     adversarial_type: Optional[str] = None  # Type if adversarial
     metadata: Dict[str, Any] = field(default_factory=dict)  # Additional metadata
 
@@ -51,7 +52,7 @@ class Question:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'Question':
+    def from_dict(cls, data: Dict[str, Any]) -> "Question":
         """
         Deserialize question from dictionary.
 
@@ -66,17 +67,17 @@ class Question:
     def __post_init__(self):
         """Validate question fields after initialization."""
         # Validate category
-        valid_categories = ['factual', 'procedural', 'conditional', 'quantitative', 'existence']
+        valid_categories = ["factual", "procedural", "conditional", "quantitative", "existence"]
         if self.category not in valid_categories:
             raise ValueError(f"Invalid category: {self.category}. Must be one of {valid_categories}")
 
         # Validate difficulty
-        valid_difficulties = ['basic', 'intermediate', 'advanced', 'expert']
+        valid_difficulties = ["basic", "intermediate", "advanced", "expert"]
         if self.difficulty not in valid_difficulties:
             raise ValueError(f"Invalid difficulty: {self.difficulty}. Must be one of {valid_difficulties}")
 
         # Validate scope
-        valid_scopes = ['section', 'document']
+        valid_scopes = ["section", "document"]
         if self.scope not in valid_scopes:
             raise ValueError(f"Invalid scope: {self.scope}. Must be one of {valid_scopes}")
 
@@ -85,13 +86,14 @@ class Question:
             raise TypeError("expected_answer must be a Dict, not str or other type")
 
         # Validate expected_answer has required fields
-        if 'text' not in self.expected_answer:
+        if "text" not in self.expected_answer:
             raise ValueError("expected_answer must contain 'text' field")
 
 
 # ============================================================================
 # Phase 4 Stubs: Answer Collection & Evaluation
 # ============================================================================
+
 
 @dataclass
 class QuestionAnswer:
@@ -101,6 +103,7 @@ class QuestionAnswer:
     Represents a single model's response to a question.
     Will be fully implemented in Phase 4 (Answer Collection).
     """
+
     question_id: str
     model_name: str
     answer_text: str
@@ -113,7 +116,7 @@ class QuestionAnswer:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'QuestionAnswer':
+    def from_dict(cls, data: Dict[str, Any]) -> "QuestionAnswer":
         """Deserialize answer from dictionary."""
         return cls(**data)
 
@@ -126,6 +129,7 @@ class QuestionEvaluation:
     Represents the LLM-as-Judge evaluation of a model's answer.
     Will be fully implemented in Phase 4 (Answer Evaluation).
     """
+
     question_id: str
     model_name: str
     score: str  # correct|partially_correct|incorrect|unanswerable
@@ -137,7 +141,7 @@ class QuestionEvaluation:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'QuestionEvaluation':
+    def from_dict(cls, data: Dict[str, Any]) -> "QuestionEvaluation":
         """Deserialize evaluation from dictionary."""
         return cls(**data)
 
@@ -150,6 +154,7 @@ class QuestionResult:
     Aggregates answers and evaluations for a single question.
     Will be fully implemented in Phase 4.
     """
+
     question: Question
     answers: Dict[str, QuestionAnswer] = field(default_factory=dict)
     evaluations: Dict[str, QuestionEvaluation] = field(default_factory=dict)
@@ -163,34 +168,35 @@ class QuestionResult:
         """Serialize result to dictionary."""
         data = asdict(self)
         # Convert nested objects
-        data['question'] = self.question.to_dict()
-        data['answers'] = {k: v.to_dict() for k, v in self.answers.items()}
-        data['evaluations'] = {k: v.to_dict() for k, v in self.evaluations.items()}
+        data["question"] = self.question.to_dict()
+        data["answers"] = {k: v.to_dict() for k, v in self.answers.items()}
+        data["evaluations"] = {k: v.to_dict() for k, v in self.evaluations.items()}
         return data
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'QuestionResult':
+    def from_dict(cls, data: Dict[str, Any]) -> "QuestionResult":
         """Deserialize result from dictionary."""
         # Reconstruct nested objects
-        question = Question.from_dict(data['question'])
-        answers = {k: QuestionAnswer.from_dict(v) for k, v in data.get('answers', {}).items()}
-        evaluations = {k: QuestionEvaluation.from_dict(v) for k, v in data.get('evaluations', {}).items()}
+        question = Question.from_dict(data["question"])
+        answers = {k: QuestionAnswer.from_dict(v) for k, v in data.get("answers", {}).items()}
+        evaluations = {k: QuestionEvaluation.from_dict(v) for k, v in data.get("evaluations", {}).items()}
 
         return cls(
             question=question,
             answers=answers,
             evaluations=evaluations,
-            consensus=data.get('consensus', ''),
-            issue_detected=data.get('issue_detected', False),
-            issue_type=data.get('issue_type'),
-            severity=data.get('severity'),
-            recommendation=data.get('recommendation')
+            consensus=data.get("consensus", ""),
+            issue_detected=data.get("issue_detected", False),
+            issue_type=data.get("issue_type"),
+            severity=data.get("severity"),
+            recommendation=data.get("recommendation"),
         )
 
 
 # ============================================================================
 # Phase 2: Question Generation Result
 # ============================================================================
+
 
 @dataclass
 class QuestioningResult:
@@ -200,6 +206,7 @@ class QuestioningResult:
     Contains all generated questions, statistics, and metadata.
     Can be saved to/loaded from questions.json.
     """
+
     questions: List[Question] = field(default_factory=list)
     results: List[QuestionResult] = field(default_factory=list)  # Empty in Phase 2, used in Phase 4
     statistics: Dict[str, Any] = field(default_factory=dict)
@@ -220,23 +227,23 @@ class QuestioningResult:
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
 
-        questions_file = output_path / 'questions.json'
+        questions_file = output_path / "questions.json"
 
         # Build data structure
         data = {
-            'document_path': self.document_path,
-            'generation_timestamp': self.generation_timestamp,
-            'generator_version': self.generator_version,
-            'statistics': self.statistics,
-            'questions': [q.to_dict() for q in self.questions]
+            "document_path": self.document_path,
+            "generation_timestamp": self.generation_timestamp,
+            "generator_version": self.generator_version,
+            "statistics": self.statistics,
+            "questions": [q.to_dict() for q in self.questions],
         }
 
         # Write with UTF-8, 2-space indent, ensure_ascii=False
-        with open(questions_file, 'w', encoding='utf-8') as f:
+        with open(questions_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
     @classmethod
-    def load(cls, input_dir: str) -> 'QuestioningResult':
+    def load(cls, input_dir: str) -> "QuestioningResult":
         """
         Load questioning result from JSON file.
 
@@ -250,24 +257,24 @@ class QuestioningResult:
             FileNotFoundError: If questions.json doesn't exist
             json.JSONDecodeError: If file is not valid JSON
         """
-        questions_file = Path(input_dir) / 'questions.json'
+        questions_file = Path(input_dir) / "questions.json"
 
         if not questions_file.exists():
             raise FileNotFoundError(f"Questions file not found: {questions_file}")
 
-        with open(questions_file, 'r', encoding='utf-8') as f:
+        with open(questions_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         # Reconstruct questions from dicts
-        questions = [Question.from_dict(q) for q in data.get('questions', [])]
+        questions = [Question.from_dict(q) for q in data.get("questions", [])]
 
         return cls(
             questions=questions,
             results=[],  # Empty in Phase 2
-            statistics=data.get('statistics', {}),
-            document_path=data.get('document_path', ''),
-            generation_timestamp=data.get('generation_timestamp', ''),
-            generator_version=data.get('generator_version', '1.0.0-phase2')
+            statistics=data.get("statistics", {}),
+            document_path=data.get("document_path", ""),
+            generation_timestamp=data.get("generation_timestamp", ""),
+            generator_version=data.get("generator_version", "1.0.0-phase2"),
         )
 
     def add_question(self, question: Question):
@@ -298,45 +305,45 @@ class QuestioningResult:
             by_difficulty[question.difficulty] = by_difficulty.get(question.difficulty, 0) + 1
 
         # Count by scope
-        section_level = sum(1 for q in self.questions if q.scope == 'section')
-        document_level = sum(1 for q in self.questions if q.scope == 'document')
+        section_level = sum(1 for q in self.questions if q.scope == "section")
+        document_level = sum(1 for q in self.questions if q.scope == "document")
 
         # Count adversarial
         adversarial_count = sum(1 for q in self.questions if q.is_adversarial)
 
         # Calculate coverage
-        sections_covered = len(set(
-            section_id
-            for q in self.questions
-            for section_id in q.target_sections
-        ))
+        sections_covered = len(set(section_id for q in self.questions for section_id in q.target_sections))
 
         # Count unique elements covered (not just questions)
         # Use metadata to track which elements were tested
-        unique_elements_covered = len(set(
-            (q.target_sections[0] if q.target_sections else '',
-             q.metadata.get('element_text', '')[:50])  # Use element text as identifier
-            for q in self.questions
-        ))
+        unique_elements_covered = len(
+            set(
+                (
+                    q.target_sections[0] if q.target_sections else "",
+                    q.metadata.get("element_text", "")[:50],
+                )  # Use element text as identifier
+                for q in self.questions
+            )
+        )
 
         section_coverage_pct = (sections_covered / total_sections * 100) if total_sections > 0 else 0
         element_coverage_pct = (unique_elements_covered / total_elements * 100) if total_elements > 0 else 0
 
         self.statistics = {
-            'total_questions': len(self.questions),
-            'section_level': section_level,
-            'document_level': document_level,
-            'adversarial': adversarial_count,
-            'by_category': by_category,
-            'by_difficulty': by_difficulty,
-            'coverage': {
-                'sections_covered': sections_covered,
-                'total_sections': total_sections,
-                'section_coverage_pct': round(section_coverage_pct, 1),
-                'elements_covered': unique_elements_covered,  # Fixed: count unique elements
-                'total_elements': total_elements,
-                'element_coverage_pct': round(element_coverage_pct, 1)
-            }
+            "total_questions": len(self.questions),
+            "section_level": section_level,
+            "document_level": document_level,
+            "adversarial": adversarial_count,
+            "by_category": by_category,
+            "by_difficulty": by_difficulty,
+            "coverage": {
+                "sections_covered": sections_covered,
+                "total_sections": total_sections,
+                "section_coverage_pct": round(section_coverage_pct, 1),
+                "elements_covered": unique_elements_covered,  # Fixed: count unique elements
+                "total_elements": total_elements,
+                "element_coverage_pct": round(element_coverage_pct, 1),
+            },
         }
 
         # Update generation timestamp
@@ -347,6 +354,7 @@ class QuestioningResult:
 # Phase 2: Testable Element Dataclass
 # ============================================================================
 
+
 @dataclass
 class TestableElement:
     """
@@ -354,6 +362,7 @@ class TestableElement:
 
     Represents a specific part of documentation that can generate a question.
     """
+
     element_type: str  # step|requirement|conditional|output|input|constraint|default|exception
     text: str  # The extracted text
     section_id: str  # Section this element belongs to
@@ -366,6 +375,7 @@ class TestableElement:
 # ============================================================================
 # Phase 2: Element Extraction
 # ============================================================================
+
 
 class ElementExtractor:
     """
@@ -384,39 +394,39 @@ class ElementExtractor:
 
     # 8 Regex Patterns for Element Extraction
     PATTERNS = {
-        'step': [
-            r'(?:^|\n)(Step\s+\d+[:.]\s+.+?)(?=\n(?:Step\s+\d+|#{1,6}\s|\n|$))',
-            r'(?:^|\n)(\d+\.\s+.+?)(?=\n(?:\d+\.|#{1,6}\s|\n|$))',
-            r'(?:^|\n)(First,?\s+.+?)(?=\n(?:Second|Next|Then|#{1,6}\s|\n|$))',
+        "step": [
+            r"(?:^|\n)(Step\s+\d+[:.]\s+.+?)(?=\n(?:Step\s+\d+|#{1,6}\s|\n|$))",
+            r"(?:^|\n)(\d+\.\s+.+?)(?=\n(?:\d+\.|#{1,6}\s|\n|$))",
+            r"(?:^|\n)(First,?\s+.+?)(?=\n(?:Second|Next|Then|#{1,6}\s|\n|$))",
         ],
-        'requirement': [
-            r'(?:^|\n)(.+?\s+(?:must|required|shall)\s+.+?)(?=[.!?\n])',
-            r'(?:^|\n)(.+?\s+is\s+required.+?)(?=[.!?\n])',
+        "requirement": [
+            r"(?:^|\n)(.+?\s+(?:must|required|shall)\s+.+?)(?=[.!?\n])",
+            r"(?:^|\n)(.+?\s+is\s+required.+?)(?=[.!?\n])",
         ],
-        'conditional': [
-            r'(?:^|\n)((?:If|When|Unless)\s+.+?,\s+.+?)(?=[.!?\n])',
-            r'(?:^|\n)(.+?\s+if\s+.+?)(?=[.!?\n])',
+        "conditional": [
+            r"(?:^|\n)((?:If|When|Unless)\s+.+?,\s+.+?)(?=[.!?\n])",
+            r"(?:^|\n)(.+?\s+if\s+.+?)(?=[.!?\n])",
         ],
-        'output': [
-            r'(?:^|\n)(.+?\s+(?:outputs?|produces?|generates?|returns?)\s+.+?)(?=[.!?\n])',
-            r'(?:^|\n)(The\s+(?:output|result)\s+.+?)(?=[.!?\n])',
+        "output": [
+            r"(?:^|\n)(.+?\s+(?:outputs?|produces?|generates?|returns?)\s+.+?)(?=[.!?\n])",
+            r"(?:^|\n)(The\s+(?:output|result)\s+.+?)(?=[.!?\n])",
         ],
-        'input': [
-            r'(?:^|\n)(.+?\s+(?:inputs?|accepts?|takes?|receives?)\s+.+?)(?=[.!?\n])',
-            r'(?:^|\n)(The\s+input\s+.+?)(?=[.!?\n])',
+        "input": [
+            r"(?:^|\n)(.+?\s+(?:inputs?|accepts?|takes?|receives?)\s+.+?)(?=[.!?\n])",
+            r"(?:^|\n)(The\s+input\s+.+?)(?=[.!?\n])",
         ],
-        'constraint': [
-            r'(?:^|\n)(.+?\s+(?:maximum|minimum|max|min|limit)\s+.+?)(?=[.!?\n])',
-            r'(?:^|\n)(.+?\s+(?:at\s+most|at\s+least|no\s+more\s+than)\s+.+?)(?=[.!?\n])',
+        "constraint": [
+            r"(?:^|\n)(.+?\s+(?:maximum|minimum|max|min|limit)\s+.+?)(?=[.!?\n])",
+            r"(?:^|\n)(.+?\s+(?:at\s+most|at\s+least|no\s+more\s+than)\s+.+?)(?=[.!?\n])",
         ],
-        'default': [
-            r'(?:^|\n)(.+?\s+(?:defaults?\s+to|default\s+value)\s+.+?)(?=[.!?\n])',
-            r'(?:^|\n)(.+?\s+is\s+set\s+to\s+.+?)(?=[.!?\n])',
+        "default": [
+            r"(?:^|\n)(.+?\s+(?:defaults?\s+to|default\s+value)\s+.+?)(?=[.!?\n])",
+            r"(?:^|\n)(.+?\s+is\s+set\s+to\s+.+?)(?=[.!?\n])",
         ],
-        'exception': [
-            r'(?:^|\n)(.+?\s+(?:error|exception|fail|invalid)\s+.+?)(?=[.!?\n])',
-            r'(?:^|\n)(If\s+.+?\s+(?:fails|errors).+?)(?=[.!?\n])',
-        ]
+        "exception": [
+            r"(?:^|\n)(.+?\s+(?:error|exception|fail|invalid)\s+.+?)(?=[.!?\n])",
+            r"(?:^|\n)(If\s+.+?\s+(?:fails|errors).+?)(?=[.!?\n])",
+        ],
     }
 
     def extract_elements(self, sections: List[Dict[str, Any]]) -> List[TestableElement]:
@@ -433,16 +443,16 @@ class ElementExtractor:
 
         for section in sections:
             # Get or generate section_id from header
-            section_id = section.get('section_id')
+            section_id = section.get("section_id")
             if not section_id:
-                header = section.get('header', '')
+                header = section.get("header", "")
                 # Generate section_id using same slugify logic as CrossReferenceAnalyzer
-                section_id = re.sub(r'[^\w\s-]', '', header.lower())
-                section_id = re.sub(r'[-\s]+', '-', section_id).strip('-')[:50]
+                section_id = re.sub(r"[^\w\s-]", "", header.lower())
+                section_id = re.sub(r"[-\s]+", "-", section_id).strip("-")[:50]
 
-            section_title = section.get('header', section.get('title', ''))
-            content = section.get('content', '')
-            start_line = section.get('start_line', 0)
+            section_title = section.get("header", section.get("title", ""))
+            content = section.get("content", "")
+            start_line = section.get("start_line", 0)
 
             # Try each pattern type
             for element_type, patterns in self.PATTERNS.items():
@@ -450,10 +460,10 @@ class ElementExtractor:
                     matches = re.finditer(pattern, content, re.MULTILINE | re.IGNORECASE)
                     for match in matches:
                         # Calculate line numbers (approximate)
-                        text_before_match = content[:match.start()]
-                        lines_before = text_before_match.count('\n')
+                        text_before_match = content[: match.start()]
+                        lines_before = text_before_match.count("\n")
                         match_text = match.group(1).strip()
-                        match_lines = match_text.count('\n')
+                        match_lines = match_text.count("\n")
 
                         # Extract context (surrounding text)
                         context_start = max(0, match.start() - 200)
@@ -467,7 +477,7 @@ class ElementExtractor:
                             section_title=section_title,
                             start_line=start_line + lines_before,
                             end_line=start_line + lines_before + match_lines,
-                            context=context
+                            context=context,
                         )
                         elements.append(element)
 
@@ -486,6 +496,7 @@ class ElementExtractor:
 # ============================================================================
 # Phase 2: Template Loading & Application
 # ============================================================================
+
 
 class TemplateLoader:
     """Loads question templates from JSON file."""
@@ -515,14 +526,14 @@ class TemplateLoader:
         if not self.template_path.exists():
             raise FileNotFoundError(f"Template file not found: {self.template_path}")
 
-        with open(self.template_path, 'r', encoding='utf-8') as f:
+        with open(self.template_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        self.templates = data.get('templates', [])
+        self.templates = data.get("templates", [])
 
         # Index by category
         for template in self.templates:
-            category = template.get('category', '')
+            category = template.get("category", "")
             if category not in self.templates_by_category:
                 self.templates_by_category[category] = []
             self.templates_by_category[category].append(template)
@@ -570,7 +581,7 @@ class TemplateApplicator:
             # Group by category, take one from each
             by_category = {}
             for match in matches:
-                cat = match[0].get('category', '')
+                cat = match[0].get("category", "")
                 if cat not in by_category:
                     by_category[cat] = match
             matches = list(by_category.values())[:max_per_element]
@@ -579,19 +590,19 @@ class TemplateApplicator:
 
     def _matches_triggers(self, template: Dict[str, Any], element: TestableElement) -> bool:
         """Check if template triggers match element type."""
-        triggers = template.get('triggers', {})
-        element_types = triggers.get('element_types', [])
-        required_keywords = triggers.get('required_keywords', [])
+        triggers = template.get("triggers", {})
+        element_types = triggers.get("element_types", [])
+        required_keywords = triggers.get("required_keywords", [])
 
         # Check element type match
-        if 'any' not in element_types and element.element_type not in element_types:
+        if "any" not in element_types and element.element_type not in element_types:
             return False
 
         # Check required keywords
         element_text_lower = element.text.lower()
         for keyword in required_keywords:
             # Support regex keywords
-            if keyword.startswith('\\'):
+            if keyword.startswith("\\"):
                 if not re.search(keyword, element.text):
                     return False
             else:
@@ -602,7 +613,7 @@ class TemplateApplicator:
 
     def _fill_question_pattern(self, template: Dict[str, Any], element: TestableElement) -> str:
         """Fill template pattern with element data."""
-        pattern = template.get('question_pattern', '')
+        pattern = template.get("question_pattern", "")
 
         # Extract element_text (truncate if too long)
         element_text = element.text
@@ -610,12 +621,12 @@ class TemplateApplicator:
             element_text = element_text[:100] + "..."
 
         # Simple replacement (can be enhanced)
-        question = pattern.replace('{section_title}', element.section_title)
-        question = question.replace('{element_text}', element_text)
+        question = pattern.replace("{section_title}", element.section_title)
+        question = question.replace("{element_text}", element_text)
 
         # Extract attribute if present (e.g., "default value" -> "value")
         attribute = self._extract_attribute(element.text)
-        question = question.replace('{attribute}', attribute)
+        question = question.replace("{attribute}", attribute)
 
         return question
 
@@ -623,19 +634,19 @@ class TemplateApplicator:
         """Extract attribute name from element text."""
         # Simple heuristic: look for "format", "value", "path", etc.
         text_lower = text.lower()
-        if 'format' in text_lower:
-            return 'format'
-        if 'value' in text_lower:
-            return 'value'
-        if 'path' in text_lower or 'location' in text_lower:
-            return 'location'
-        return 'value'
+        if "format" in text_lower:
+            return "format"
+        if "value" in text_lower:
+            return "value"
+        if "path" in text_lower or "location" in text_lower:
+            return "location"
+        return "value"
 
     def _extract_answer(self, template: Dict[str, Any], element: TestableElement) -> str:
         """Extract expected answer from element context."""
-        extraction = template.get('answer_extraction', {})
-        keywords = extraction.get('keywords', [])
-        context_window = extraction.get('context_window', 2)
+        extraction = template.get("answer_extraction", {})
+        _keywords = extraction.get("keywords", [])
+        _context_window = extraction.get("context_window", 2)
 
         # Use element text as answer (simplified)
         # In a full implementation, this would be more sophisticated
@@ -651,6 +662,7 @@ class TemplateApplicator:
 # ============================================================================
 # Phase 2: Question Validation
 # ============================================================================
+
 
 class QuestionValidator:
     """
@@ -694,11 +706,11 @@ class QuestionValidator:
     def _is_answerable(self, answer: str, element: TestableElement) -> bool:
         """Check if answer can be found in element context."""
         # Extract key words from answer
-        answer_words = set(re.findall(r'\w+', answer.lower()))
-        context_words = set(re.findall(r'\w+', element.context.lower()))
+        answer_words = set(re.findall(r"\w+", answer.lower()))
+        context_words = set(re.findall(r"\w+", element.context.lower()))
 
         # Common words to ignore
-        stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for'}
+        stop_words = {"the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for"}
         answer_words -= stop_words
 
         if not answer_words:
@@ -716,13 +728,13 @@ class QuestionValidator:
         # For short answers (≤20 chars), check for exact match of significant words
         if len(answer) <= 20:
             # Extract significant words from answer (remove stop words)
-            stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'is', 'are'}
-            answer_words = set(re.findall(r'\w+', answer_lower))
+            stop_words = {"the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "is", "are"}
+            answer_words = set(re.findall(r"\w+", answer_lower))
             answer_words -= stop_words
 
             # If answer has significant words, check if they all appear in question
             if answer_words:
-                question_words = set(re.findall(r'\w+', question_lower))
+                question_words = set(re.findall(r"\w+", question_lower))
                 # Leakage if all answer words appear in question
                 if answer_words.issubset(question_words):
                     # Additional check: answer text appears as substring
@@ -734,7 +746,7 @@ class QuestionValidator:
         # For long answers (>20 chars), check for significant substring overlap
         # Check if answer substring appears in question
         for i in range(len(answer) - 20):
-            substring = answer_lower[i:i+20]
+            substring = answer_lower[i : i + 20]
             if substring in question_lower:
                 return True
 
@@ -743,11 +755,26 @@ class QuestionValidator:
     def _is_grammatical(self, question: str) -> bool:
         """Check if question has proper structure."""
         # Must end with question mark
-        if not question.strip().endswith('?'):
+        if not question.strip().endswith("?"):
             return False
 
         # Must start with question word or be inverted
-        question_words = ['what', 'where', 'when', 'why', 'how', 'which', 'who', 'is', 'are', 'does', 'do', 'can', 'should', 'according']
+        question_words = [
+            "what",
+            "where",
+            "when",
+            "why",
+            "how",
+            "which",
+            "who",
+            "is",
+            "are",
+            "does",
+            "do",
+            "can",
+            "should",
+            "according",
+        ]
         first_word = question.strip().split()[0].lower()
         if first_word not in question_words:
             return False
@@ -761,19 +788,19 @@ class QuestionValidator:
     def _is_multipart(self, question: str) -> bool:
         """Check if question asks multiple things."""
         # Check for "and" connecting two question clauses
-        and_count = question.lower().count(' and ')
-        or_count = question.lower().count(' or ')
+        and_count = question.lower().count(" and ")
+        _or_count = question.lower().count(" or ")
 
         # Multiple question marks
-        question_marks = question.count('?')
+        question_marks = question.count("?")
         if question_marks > 1:
             return True
 
         # "and" + question word suggests multi-part
         if and_count > 0:
-            question_words = ['what', 'where', 'when', 'why', 'how', 'which']
+            question_words = ["what", "where", "when", "why", "how", "which"]
             for word in question_words:
-                if and_count > 0 and question.lower().count(f'and {word}') > 0:
+                if and_count > 0 and question.lower().count(f"and {word}") > 0:
                     return True
 
         return False
@@ -782,6 +809,7 @@ class QuestionValidator:
 # ============================================================================
 # Phase 2: Question Generation Step
 # ============================================================================
+
 
 class QuestioningStep:
     """
@@ -805,7 +833,7 @@ class QuestioningStep:
         enable_document_level: bool = True,
         session_manager=None,
         models_config: Optional[Dict] = None,
-        session_config: Optional[Dict] = None
+        session_config: Optional[Dict] = None,
     ):
         """
         Initialize questioning step.
@@ -824,17 +852,13 @@ class QuestioningStep:
         self.enable_document_level = enable_document_level
         self.session_manager = session_manager
         self.models_config = models_config or {}
-        self.session_config = session_config or {
-            'enabled': True,
-            'mode': 'continue-on-error',
-            'max_retries': 2
-        }
+        self.session_config = session_config or {"enabled": True, "mode": "continue-on-error", "max_retries": 2}
 
         # Determine template path
         if template_path is None:
             # Default to scripts/templates/question_templates.json
             current_dir = Path(__file__).parent
-            template_path = current_dir.parent / 'templates' / 'question_templates.json'
+            template_path = str(current_dir.parent / "templates" / "question_templates.json")
 
         # Load templates
         loader = TemplateLoader(str(template_path))
@@ -855,7 +879,7 @@ class QuestioningStep:
         sections: List[Dict[str, Any]],
         document_text: str,
         document_path: str = "",
-        coverage_targets: Dict[str, float] = None
+        coverage_targets: Dict[str, float] = None,
     ) -> QuestioningResult:
         """
         Generate questions from sections.
@@ -870,7 +894,7 @@ class QuestioningStep:
             QuestioningResult with generated questions
         """
         if coverage_targets is None:
-            coverage_targets = {'section_pct': 70.0, 'element_pct': 60.0}
+            coverage_targets = {"section_pct": 70.0, "element_pct": 60.0}
 
         # Phase 2.1: Extract testable elements
         elements = self.extractor.extract_elements(sections)
@@ -892,40 +916,31 @@ class QuestioningStep:
                     question = Question(
                         question_id=f"q_{question_id_counter:03d}",
                         question_text=question_text,
-                        category=template.get('category', 'factual'),
-                        difficulty=template.get('difficulty', 'basic'),
-                        scope='section',  # Phase 2 only does section-level
+                        category=template.get("category", "factual"),
+                        difficulty=template.get("difficulty", "basic"),
+                        scope="section",  # Phase 2 only does section-level
                         target_sections=[element.section_id],
                         expected_answer={
-                            'text': expected_answer,
-                            'source_lines': [element.start_line, element.end_line],
-                            'confidence': template.get('answer_extraction', {}).get('confidence_threshold', 'medium')
+                            "text": expected_answer,
+                            "source_lines": [element.start_line, element.end_line],
+                            "confidence": template.get("answer_extraction", {}).get("confidence_threshold", "medium"),
                         },
-                        generation_method='template',
-                        template_id=template.get('template_id'),
+                        generation_method="template",
+                        template_id=template.get("template_id"),
                         is_adversarial=False,
-                        metadata={
-                            'testable_element': element.element_type,
-                            'element_text': element.text[:100]
-                        }
+                        metadata={"testable_element": element.element_type, "element_text": element.text[:100]},
                     )
                     candidate_questions.append(question)
                     question_id_counter += 1
 
         # Phase 2.3: Select questions to meet coverage targets
         selected_questions = self._select_for_coverage(
-            candidate_questions,
-            len(sections),
-            len(elements),
-            coverage_targets
+            candidate_questions, len(sections), len(elements), coverage_targets
         )
 
         # Phase 3: Generate document-level questions (if enabled)
         if self.enable_document_level:
-            doc_level_questions = self._generate_document_level_questions(
-                sections,
-                question_id_counter
-            )
+            doc_level_questions = self._generate_document_level_questions(sections, question_id_counter)
             selected_questions.extend(doc_level_questions)
 
         # Create result
@@ -935,7 +950,7 @@ class QuestioningStep:
             statistics={},
             document_path=document_path,
             generation_timestamp=datetime.now().isoformat(),
-            generator_version=self.generator_version
+            generator_version=self.generator_version,
         )
 
         # Calculate statistics
@@ -944,11 +959,7 @@ class QuestioningStep:
         return result
 
     def collect_answers(
-        self,
-        questions: List[Question],
-        models: List[str],
-        document_text: str = "",
-        session_manager=None
+        self, questions: List[Question], models: List[str], document_text: str = "", session_manager=None
     ) -> Dict[str, Dict[str, QuestionAnswer]]:
         """
         Phase 4: Collect answers from models using sessions.
@@ -978,7 +989,7 @@ class QuestioningStep:
         answers: Dict[str, Dict[str, QuestionAnswer]],
         sections: List[Dict[str, Any]],
         session_manager,
-        judge_model: str = "claude"
+        judge_model: str = "claude",
     ) -> Dict[str, QuestionResult]:
         """
         Phase 4: Evaluate answers with LLM-as-Judge and calculate consensus.
@@ -1000,12 +1011,12 @@ class QuestioningStep:
         section_map = {}
         for section in sections:
             # Get section_id (either already present or generate from header)
-            section_id = section.get('section_id')
-            if not section_id and 'header' in section:
+            section_id = section.get("section_id")
+            if not section_id and "header" in section:
                 # Generate section_id using same slugify logic as CrossReferenceAnalyzer
-                header = section['header']
-                section_id = re.sub(r'[^\w\s-]', '', header.lower())
-                section_id = re.sub(r'[-\s]+', '-', section_id).strip('-')[:50]
+                header = section["header"]
+                section_id = re.sub(r"[^\w\s-]", "", header.lower())
+                section_id = re.sub(r"[-\s]+", "-", section_id).strip("-")[:50]
             if section_id:
                 section_map[section_id] = section
 
@@ -1037,10 +1048,7 @@ class QuestioningStep:
 
         return results
 
-    def detect_issues(
-        self,
-        results: Dict[str, QuestionResult]
-    ) -> List[Dict]:
+    def detect_issues(self, results: Dict[str, QuestionResult]) -> List[Dict]:
         """
         Phase 4: Convert QuestionResults to ambiguity-like issues.
 
@@ -1060,11 +1068,7 @@ class QuestioningStep:
 
         return issues
 
-    def _ensure_session_manager(
-        self,
-        document_text: str,
-        models: List[str]
-    ):
+    def _ensure_session_manager(self, document_text: str, models: List[str]):
         """
         Ensure session manager exists - create if needed.
 
@@ -1089,17 +1093,14 @@ class QuestioningStep:
             self.models_config = {}
             for model in models:
                 if model not in self.models_config:
-                    self.models_config[model] = {
-                        'command': model,
-                        'timeout': 30
-                    }
+                    self.models_config[model] = {"command": model, "timeout": 30}
 
         # Initialize sessions with document context
         session_init = SessionInitStep(self.models_config, self.session_config)
         session_result = session_init.init_sessions(
             document_content=document_text,
             model_names=models,
-            purpose_prompt="This document is being tested for comprehension. Please analyze questions about this documentation."
+            purpose_prompt="This document is being tested for comprehension. Please analyze questions about this documentation.",
         )
 
         # Store for reuse
@@ -1107,11 +1108,7 @@ class QuestioningStep:
         return self.session_manager
 
     def _select_for_coverage(
-        self,
-        candidates: List[Question],
-        total_sections: int,
-        total_elements: int,
-        targets: Dict[str, float]
+        self, candidates: List[Question], total_sections: int, total_elements: int, targets: Dict[str, float]
     ) -> List[Question]:
         """
         Select questions to meet coverage targets.
@@ -1131,8 +1128,8 @@ class QuestioningStep:
             return []
 
         # Calculate target counts
-        target_section_count = int(total_sections * targets['section_pct'] / 100)
-        target_element_count = int(total_elements * targets['element_pct'] / 100)
+        _target_section_count = int(total_sections * targets["section_pct"] / 100)
+        target_element_count = int(total_elements * targets["element_pct"] / 100)
 
         # Group by section
         by_section = {}
@@ -1169,11 +1166,7 @@ class QuestioningStep:
 
         return selected
 
-    def _generate_document_level_questions(
-        self,
-        sections: List[Dict[str, Any]],
-        start_id: int
-    ) -> List[Question]:
+    def _generate_document_level_questions(self, sections: List[Dict[str, Any]], start_id: int) -> List[Question]:
         """
         Generate document-level questions using Phase 3 analysis.
 
@@ -1192,107 +1185,87 @@ class QuestioningStep:
         conflicts = self.conflict_detector.detect_conflicts(sections)
 
         # Get document-level templates
-        doc_templates = [t for t in self.templates if t.get('scope') == 'document']
+        doc_templates = [t for t in self.templates if t.get("scope") == "document"]
 
         # Generate dependency questions
-        for source_id, target_ids in ref_analysis['dependencies'].items():
+        for source_id, target_ids in ref_analysis["dependencies"].items():
             for target_id in target_ids:
                 # Find matching template
-                dep_template = next((t for t in doc_templates if t.get('template_id') == 'document_dependency_01'), None)
+                dep_template = next(
+                    (t for t in doc_templates if t.get("template_id") == "document_dependency_01"), None
+                )
                 if dep_template:
-                    question_text = dep_template['question_pattern'].format(
-                        source_section=source_id,
-                        target_section=target_id
+                    question_text = dep_template["question_pattern"].format(
+                        source_section=source_id, target_section=target_id
                     )
                     expected_answer = f"Complete {source_id} before {target_id}"
 
                     question = Question(
                         question_id=f"q_{question_id:03d}",
                         question_text=question_text,
-                        category=dep_template['category'],
-                        difficulty=dep_template['difficulty'],
-                        scope='document',
+                        category=dep_template["category"],
+                        difficulty=dep_template["difficulty"],
+                        scope="document",
                         target_sections=[source_id, target_id],
-                        expected_answer={
-                            'text': expected_answer,
-                            'confidence': 'medium'
-                        },
-                        generation_method='template',
-                        template_id=dep_template['template_id'],
-                        metadata={
-                            'dependency_type': 'explicit',
-                            'source': source_id,
-                            'target': target_id
-                        }
+                        expected_answer={"text": expected_answer, "confidence": "medium"},
+                        generation_method="template",
+                        template_id=dep_template["template_id"],
+                        metadata={"dependency_type": "explicit", "source": source_id, "target": target_id},
                     )
                     doc_questions.append(question)
                     question_id += 1
 
         # Generate conflict questions
         for conflict in conflicts:
-            if conflict['type'] == 'contradictory_requirements':
-                template = next((t for t in doc_templates if t.get('template_id') == 'document_conflict_01'), None)
+            if conflict["type"] == "contradictory_requirements":
+                template = next((t for t in doc_templates if t.get("template_id") == "document_conflict_01"), None)
                 if template:
-                    section_a, section_b = conflict['section_pair']
-                    question_text = template['question_pattern'].format(
-                        section_a=section_a,
-                        section_b=section_b,
-                        conflicting_element="requirements"
+                    section_a, section_b = conflict["section_pair"]
+                    question_text = template["question_pattern"].format(
+                        section_a=section_a, section_b=section_b, conflicting_element="requirements"
                     )
                     expected_answer = f"Conflict: {conflict['evidence']}"
 
                     question = Question(
                         question_id=f"q_{question_id:03d}",
                         question_text=question_text,
-                        category=template['category'],
-                        difficulty=template['difficulty'],
-                        scope='document',
-                        target_sections=conflict['section_pair'],
-                        expected_answer={
-                            'text': expected_answer,
-                            'confidence': 'high'
-                        },
-                        generation_method='template',
-                        template_id=template['template_id'],
-                        metadata={
-                            'conflict_type': conflict['type'],
-                            'evidence': conflict['evidence']
-                        }
+                        category=template["category"],
+                        difficulty=template["difficulty"],
+                        scope="document",
+                        target_sections=conflict["section_pair"],
+                        expected_answer={"text": expected_answer, "confidence": "high"},
+                        generation_method="template",
+                        template_id=template["template_id"],
+                        metadata={"conflict_type": conflict["type"], "evidence": conflict["evidence"]},
                     )
                     doc_questions.append(question)
                     question_id += 1
 
-            elif conflict['type'] == 'value_conflict':
-                template = next((t for t in doc_templates if t.get('template_id') == 'document_conflict_02'), None)
-                if template and len(conflict['conflicts']) >= 2:
-                    first = conflict['conflicts'][0]
-                    second = conflict['conflicts'][1]
-                    question_text = template['question_pattern'].format(
-                        term=conflict['term'],
-                        value_a=first['value'],
-                        section_a=first['section'],
-                        value_b=second['value'],
-                        section_b=second['section']
+            elif conflict["type"] == "value_conflict":
+                template = next((t for t in doc_templates if t.get("template_id") == "document_conflict_02"), None)
+                if template and len(conflict["conflicts"]) >= 2:
+                    first = conflict["conflicts"][0]
+                    second = conflict["conflicts"][1]
+                    question_text = template["question_pattern"].format(
+                        term=conflict["term"],
+                        value_a=first["value"],
+                        section_a=first["section"],
+                        value_b=second["value"],
+                        section_b=second["section"],
                     )
-                    expected_answer = conflict['evidence']
+                    expected_answer = conflict["evidence"]
 
                     question = Question(
                         question_id=f"q_{question_id:03d}",
                         question_text=question_text,
-                        category=template['category'],
-                        difficulty=template['difficulty'],
-                        scope='document',
-                        target_sections=[first['section'], second['section']],
-                        expected_answer={
-                            'text': expected_answer,
-                            'confidence': 'high'
-                        },
-                        generation_method='template',
-                        template_id=template['template_id'],
-                        metadata={
-                            'conflict_type': 'value_conflict',
-                            'term': conflict['term']
-                        }
+                        category=template["category"],
+                        difficulty=template["difficulty"],
+                        scope="document",
+                        target_sections=[first["section"], second["section"]],
+                        expected_answer={"text": expected_answer, "confidence": "high"},
+                        generation_method="template",
+                        template_id=template["template_id"],
+                        metadata={"conflict_type": "value_conflict", "term": conflict["term"]},
                     )
                     doc_questions.append(question)
                     question_id += 1
@@ -1305,19 +1278,20 @@ class QuestioningStep:
 # Phase 3: Document-Level Analysis
 # ============================================================================
 
+
 class CrossReferenceAnalyzer:
     """Analyzes section cross-references to build dependency graph."""
 
     REFERENCE_PATTERNS = {
-        'explicit': [
+        "explicit": [
             # Match "See section X" or "Section 2.1" or "see the Setup section"
             r'(?:See|Refer to|As (?:described|shown) in)\s+(?:section\s+)?["\']?([A-Za-z0-9._\-\s]+?)["\']?\s+(?:section|for)',
-            r'(?:section|Section)\s+([A-Za-z0-9._\-]+)',
+            r"(?:section|Section)\s+([A-Za-z0-9._\-]+)",
         ],
-        'implicit': [
-            r'(?:above|previously|earlier)\s+(?:mentioned|described)',
-            r'(?:following|next|subsequent)\s+section',
-        ]
+        "implicit": [
+            r"(?:above|previously|earlier)\s+(?:mentioned|described)",
+            r"(?:following|next|subsequent)\s+section",
+        ],
     }
 
     def _slugify(self, text: str) -> str:
@@ -1331,8 +1305,8 @@ class CrossReferenceAnalyzer:
             Slugified section ID
         """
         # Remove special chars, lowercase, replace spaces with hyphens
-        slug = re.sub(r'[^\w\s-]', '', text.lower())
-        slug = re.sub(r'[-\s]+', '-', slug).strip('-')
+        slug = re.sub(r"[^\w\s-]", "", text.lower())
+        slug = re.sub(r"[-\s]+", "-", slug).strip("-")
         return slug[:50]  # Limit length
 
     def _extract_references(self, content: str, header_to_id: Dict[str, str]) -> List[str]:
@@ -1349,7 +1323,7 @@ class CrossReferenceAnalyzer:
         refs = set()
 
         # Try explicit patterns first
-        for pattern in self.REFERENCE_PATTERNS['explicit']:
+        for pattern in self.REFERENCE_PATTERNS["explicit"]:
             for match in re.finditer(pattern, content, re.IGNORECASE):
                 ref_text = match.group(1).strip()
                 # Normalize and look up in mapping
@@ -1383,11 +1357,11 @@ class CrossReferenceAnalyzer:
 
         for i, section in enumerate(sections):
             # Generate section_id from header (fallback to index)
-            header = section.get('header', f'section_{i}')
+            header = section.get("header", f"section_{i}")
             section_id = self._slugify(header)
 
             # Add to section dict for downstream use
-            section['section_id'] = section_id
+            section["section_id"] = section_id
             section_map[section_id] = section
 
             # Map normalized header variants for fuzzy matching
@@ -1397,7 +1371,7 @@ class CrossReferenceAnalyzer:
         # Build dependency graph
         dependencies = {}
         for section_id, section in section_map.items():
-            refs = self._extract_references(section['content'], header_to_id)
+            refs = self._extract_references(section["content"], header_to_id)
             if refs:
                 dependencies[section_id] = refs
 
@@ -1409,17 +1383,9 @@ class CrossReferenceAnalyzer:
         for refs in dependencies.values():
             all_referenced.update(refs)
 
-        orphans = [
-            sid for sid in section_map.keys()
-            if sid not in dependencies and sid not in all_referenced
-        ]
+        orphans = [sid for sid in section_map.keys() if sid not in dependencies and sid not in all_referenced]
 
-        return {
-            'dependencies': dependencies,
-            'cycles': cycles,
-            'orphans': orphans,
-            'section_map': section_map
-        }
+        return {"dependencies": dependencies, "cycles": cycles, "orphans": orphans, "section_map": section_map}
 
     def _detect_cycles(self, dependencies: Dict[str, List[str]]) -> List[List[str]]:
         """
@@ -1465,16 +1431,16 @@ class ConflictDetector:
     """Detects potential conflicts between sections."""
 
     CONFLICT_INDICATORS = {
-        'contradictory_requirements': [
-            ('must', 'must not'),
-            ('required', 'optional'),
-            ('always', 'never'),
-            ('should', 'should not'),
+        "contradictory_requirements": [
+            ("must", "must not"),
+            ("required", "optional"),
+            ("always", "never"),
+            ("should", "should not"),
         ],
-        'value_conflicts': [
+        "value_conflicts": [
             # Pattern to detect same term with different values
-            r'(\w+)\s+(?:is|=|:)\s+([^\s]+)',
-        ]
+            r"(\w+)\s+(?:is|=|:)\s+([^\s]+)",
+        ],
     }
 
     def detect_conflicts(self, sections: List[Dict]) -> List[Dict]:
@@ -1491,7 +1457,7 @@ class ConflictDetector:
 
         # Check for contradictory requirements
         for i, section_a in enumerate(sections):
-            for section_b in sections[i+1:]:
+            for section_b in sections[i + 1 :]:
                 conflict = self._check_contradiction(section_a, section_b)
                 if conflict:
                     conflicts.append(conflict)
@@ -1513,25 +1479,25 @@ class ConflictDetector:
         Returns:
             Conflict dict if found, None otherwise
         """
-        content_a = section_a['content'].lower()
-        content_b = section_b['content'].lower()
+        content_a = section_a["content"].lower()
+        content_b = section_b["content"].lower()
 
         # Get section IDs with safe fallback chain
-        section_id_a = section_a.get('section_id') or section_a.get('header') or section_a.get('title', 'unknown')
-        section_id_b = section_b.get('section_id') or section_b.get('header') or section_b.get('title', 'unknown')
+        section_id_a = section_a.get("section_id") or section_a.get("header") or section_a.get("title", "unknown")
+        section_id_b = section_b.get("section_id") or section_b.get("header") or section_b.get("title", "unknown")
 
-        for positive, negative in self.CONFLICT_INDICATORS['contradictory_requirements']:
+        for positive, negative in self.CONFLICT_INDICATORS["contradictory_requirements"]:
             if positive in content_a and negative in content_b:
                 return {
-                    'type': 'contradictory_requirements',
-                    'section_pair': [section_id_a, section_id_b],
-                    'evidence': f"Section {section_id_a} contains '{positive}', Section {section_id_b} contains '{negative}'"
+                    "type": "contradictory_requirements",
+                    "section_pair": [section_id_a, section_id_b],
+                    "evidence": f"Section {section_id_a} contains '{positive}', Section {section_id_b} contains '{negative}'",
                 }
             elif negative in content_a and positive in content_b:
                 return {
-                    'type': 'contradictory_requirements',
-                    'section_pair': [section_id_a, section_id_b],
-                    'evidence': f"Section {section_id_a} contains '{negative}', Section {section_id_b} contains '{positive}'"
+                    "type": "contradictory_requirements",
+                    "section_pair": [section_id_a, section_id_b],
+                    "evidence": f"Section {section_id_a} contains '{negative}', Section {section_id_b} contains '{positive}'",
                 }
 
         return None
@@ -1552,10 +1518,10 @@ class ConflictDetector:
         # Extract term-value pairs from all sections
         for section in sections:
             # Get section ID with safe fallback chain
-            section_id = section.get('section_id') or section.get('header') or section.get('title', 'unknown')
-            content = section['content']
+            section_id = section.get("section_id") or section.get("header") or section.get("title", "unknown")
+            content = section["content"]
 
-            for pattern in self.CONFLICT_INDICATORS['value_conflicts']:
+            for pattern in self.CONFLICT_INDICATORS["value_conflicts"]:
                 for match in re.finditer(pattern, content, re.IGNORECASE):
                     term = match.group(1).lower()
                     value = match.group(2).strip()
@@ -1570,15 +1536,14 @@ class ConflictDetector:
                 unique_values = set(v[1] for v in values)
                 if len(unique_values) > 1:
                     # Conflict: same term, different values
-                    conflicts.append({
-                        'type': 'value_conflict',
-                        'term': term,
-                        'conflicts': [
-                            {'section': sid, 'value': val}
-                            for sid, val in values
-                        ],
-                        'evidence': f"Term '{term}' has conflicting values: {', '.join(unique_values)}"
-                    })
+                    conflicts.append(
+                        {
+                            "type": "value_conflict",
+                            "term": term,
+                            "conflicts": [{"section": sid, "value": val} for sid, val in values],
+                            "evidence": f"Term '{term}' has conflicting values: {', '.join(unique_values)}",
+                        }
+                    )
 
         return conflicts
 
@@ -1586,6 +1551,7 @@ class ConflictDetector:
 # ============================================================================
 # Phase 4: Answer Collection & Evaluation
 # ============================================================================
+
 
 class AnswerCollector:
     """Collects model answers to questions (reuses session management)."""
@@ -1599,11 +1565,7 @@ class AnswerCollector:
         """
         self.session_manager = session_manager
 
-    def collect_answers(
-        self,
-        questions: List[Question],
-        models: List[str]
-    ) -> Dict[str, Dict[str, QuestionAnswer]]:
+    def collect_answers(self, questions: List[Question], models: List[str]) -> Dict[str, Dict[str, QuestionAnswer]]:
         """
         Query models with questions using existing sessions.
 
@@ -1615,6 +1577,7 @@ class AnswerCollector:
             Dict mapping question_id -> {model_name -> QuestionAnswer}
         """
         import time
+
         answers = {}
 
         for question in questions:
@@ -1628,17 +1591,14 @@ class AnswerCollector:
                     start_time = time.time()
 
                     # Query model using session
-                    response_dict = self.session_manager.query_in_session(
-                        model_name=model,
-                        prompt=prompt
-                    )
+                    response_dict = self.session_manager.query_in_session(model_name=model, prompt=prompt)
 
                     elapsed_ms = int((time.time() - start_time) * 1000)
 
                     # Extract response string for parsing
                     # query_in_session returns either parsed JSON or {"raw_response": "..."}
-                    if 'raw_response' in response_dict:
-                        response_str = response_dict['raw_response']
+                    if "raw_response" in response_dict:
+                        response_str = response_dict["raw_response"]
                     else:
                         # Already parsed JSON, serialize it for our parser
                         response_str = json.dumps(response_dict)
@@ -1650,10 +1610,10 @@ class AnswerCollector:
                     answer = QuestionAnswer(
                         question_id=question.question_id,
                         model_name=model,
-                        answer_text=answer_data.get('answer', ''),
+                        answer_text=answer_data.get("answer", ""),
                         response_time_ms=elapsed_ms,
                         raw_response=response_str,
-                        confidence_stated=answer_data.get('confidence')
+                        confidence_stated=answer_data.get("confidence"),
                     )
 
                     answers[question.question_id][model] = answer
@@ -1667,7 +1627,7 @@ class AnswerCollector:
                         answer_text=f"ERROR: {str(e)}",
                         response_time_ms=0,
                         raw_response="",
-                        confidence_stated="none"
+                        confidence_stated="none",
                     )
 
         return answers
@@ -1712,13 +1672,13 @@ Provide your answer in this exact JSON format:
         # Try to parse as JSON
         try:
             # Handle markdown-wrapped JSON
-            if '```json' in response:
-                start = response.find('```json') + 7
-                end = response.find('```', start)
+            if "```json" in response:
+                start = response.find("```json") + 7
+                end = response.find("```", start)
                 json_str = response[start:end].strip()
-            elif '```' in response:
-                start = response.find('```') + 3
-                end = response.find('```', start)
+            elif "```" in response:
+                start = response.find("```") + 3
+                end = response.find("```", start)
                 json_str = response[start:end].strip()
             else:
                 json_str = response.strip()
@@ -1728,11 +1688,7 @@ Provide your answer in this exact JSON format:
 
         except (json.JSONDecodeError, ValueError):
             # Fallback: treat entire response as answer
-            return {
-                'answer': response.strip(),
-                'confidence': 'low',
-                'reasoning': 'Failed to parse JSON response'
-            }
+            return {"answer": response.strip(), "confidence": "low", "reasoning": "Failed to parse JSON response"}
 
 
 class AnswerEvaluator:
@@ -1749,12 +1705,7 @@ class AnswerEvaluator:
         self.judge_model = judge_model
         self.session_manager = session_manager
 
-    def evaluate_answer(
-        self,
-        question: Question,
-        answer: QuestionAnswer,
-        context: str
-    ) -> QuestionEvaluation:
+    def evaluate_answer(self, question: Question, answer: QuestionAnswer, context: str) -> QuestionEvaluation:
         """
         Use LLM-as-Judge to evaluate answer correctness.
 
@@ -1771,14 +1722,11 @@ class AnswerEvaluator:
 
         try:
             # Query judge model
-            response_dict = self.session_manager.query_in_session(
-                model_name=self.judge_model,
-                prompt=prompt
-            )
+            response_dict = self.session_manager.query_in_session(model_name=self.judge_model, prompt=prompt)
 
             # Extract response string for parsing
-            if 'raw_response' in response_dict:
-                response_str = response_dict['raw_response']
+            if "raw_response" in response_dict:
+                response_str = response_dict["raw_response"]
             else:
                 response_str = json.dumps(response_dict)
 
@@ -1788,9 +1736,9 @@ class AnswerEvaluator:
             return QuestionEvaluation(
                 question_id=question.question_id,
                 model_name=answer.model_name,
-                score=eval_data.get('score', 'incorrect'),
-                reasoning=eval_data.get('reasoning', ''),
-                evidence=eval_data.get('evidence', '')
+                score=eval_data.get("score", "incorrect"),
+                reasoning=eval_data.get("reasoning", ""),
+                evidence=eval_data.get("evidence", ""),
             )
 
         except Exception as e:
@@ -1798,9 +1746,9 @@ class AnswerEvaluator:
             return QuestionEvaluation(
                 question_id=question.question_id,
                 model_name=answer.model_name,
-                score='incorrect',
-                reasoning=f'Judge error: {str(e)}',
-                evidence=''
+                score="incorrect",
+                reasoning=f"Judge error: {str(e)}",
+                evidence="",
             )
 
     def _build_judge_prompt(self, question: Question, answer: QuestionAnswer, context: str) -> str:
@@ -1814,7 +1762,7 @@ QUESTION:
 {question.question_text}
 
 EXPECTED ANSWER:
-{question.expected_answer['text']}
+{question.expected_answer["text"]}
 
 MODEL'S ANSWER:
 {answer.answer_text}
@@ -1838,13 +1786,13 @@ SCORING CRITERIA:
 
         try:
             # Handle markdown-wrapped JSON
-            if '```json' in response:
-                start = response.find('```json') + 7
-                end = response.find('```', start)
+            if "```json" in response:
+                start = response.find("```json") + 7
+                end = response.find("```", start)
                 json_str = response[start:end].strip()
-            elif '```' in response:
-                start = response.find('```') + 3
-                end = response.find('```', start)
+            elif "```" in response:
+                start = response.find("```") + 3
+                end = response.find("```", start)
                 json_str = response[start:end].strip()
             else:
                 json_str = response.strip()
@@ -1852,21 +1800,13 @@ SCORING CRITERIA:
             return json.loads(json_str)
 
         except (json.JSONDecodeError, ValueError):
-            return {
-                'score': 'incorrect',
-                'reasoning': 'Failed to parse judge response',
-                'evidence': ''
-            }
+            return {"score": "incorrect", "reasoning": "Failed to parse judge response", "evidence": ""}
 
 
 class ConsensusCalculator:
     """Calculates consensus and detects comprehension issues."""
 
-    def calculate_consensus(
-        self,
-        question: Question,
-        evaluations: Dict[str, QuestionEvaluation]
-    ) -> QuestionResult:
+    def calculate_consensus(self, question: Question, evaluations: Dict[str, QuestionEvaluation]) -> QuestionResult:
         """
         Determine consensus across models.
 
@@ -1878,29 +1818,25 @@ class ConsensusCalculator:
             QuestionResult with consensus type and issue detection
         """
         if not evaluations:
-            return QuestionResult(
-                question=question,
-                consensus='no_data',
-                issue_detected=False
-            )
+            return QuestionResult(question=question, consensus="no_data", issue_detected=False)
 
         # Count scores
         scores = [e.score for e in evaluations.values()]
-        correct_count = scores.count('correct')
-        incorrect_count = scores.count('incorrect')
-        partial_count = scores.count('partially_correct')
-        unanswerable_count = scores.count('unanswerable')
+        correct_count = scores.count("correct")
+        incorrect_count = scores.count("incorrect")
+        _partial_count = scores.count("partially_correct")
+        unanswerable_count = scores.count("unanswerable")
         total = len(scores)
 
         # Determine consensus type
         if correct_count == total:
-            consensus = 'agreement'
+            consensus = "agreement"
         elif correct_count >= total * 0.7:
-            consensus = 'partial_agreement'
+            consensus = "partial_agreement"
         elif incorrect_count == total or unanswerable_count == total:
-            consensus = 'widespread_failure'
+            consensus = "widespread_failure"
         else:
-            consensus = 'disagreement'
+            consensus = "disagreement"
 
         # Detect issues
         issue_detected = False
@@ -1908,18 +1844,18 @@ class ConsensusCalculator:
         severity = None
         recommendation = None
 
-        if consensus == 'disagreement':
+        if consensus == "disagreement":
             issue_detected = True
-            issue_type = 'comprehension_divergence'
-            severity = 'MEDIUM'
-            correct_models = [m for m, e in evaluations.items() if e.score == 'correct']
-            incorrect_models = [m for m, e in evaluations.items() if e.score != 'correct']
+            issue_type = "comprehension_divergence"
+            severity = "MEDIUM"
+            correct_models = [m for m, e in evaluations.items() if e.score == "correct"]
+            incorrect_models = [m for m, e in evaluations.items() if e.score != "correct"]
             recommendation = f"Models disagree: {len(correct_models)} correct, {len(incorrect_models)} incorrect. Review question clarity."
 
-        elif consensus == 'widespread_failure':
+        elif consensus == "widespread_failure":
             issue_detected = True
-            issue_type = 'unanswerable_question'
-            severity = 'HIGH'
+            issue_type = "unanswerable_question"
+            severity = "HIGH"
             recommendation = "All models failed - likely documentation gap or question issue."
 
         return QuestionResult(
@@ -1929,7 +1865,7 @@ class ConsensusCalculator:
             issue_detected=issue_detected,
             issue_type=issue_type,
             severity=severity,
-            recommendation=recommendation
+            recommendation=recommendation,
         )
 
     def detect_issue(self, result: QuestionResult) -> Optional[Dict]:
@@ -1945,27 +1881,25 @@ class ConsensusCalculator:
         if not result.issue_detected:
             return None
 
-        models_correct = [m for m, e in result.evaluations.items() if e.score == 'correct']
-        models_incorrect = [m for m, e in result.evaluations.items() if e.score != 'correct']
+        models_correct = [m for m, e in result.evaluations.items() if e.score == "correct"]
+        models_incorrect = [m for m, e in result.evaluations.items() if e.score != "correct"]
 
         return {
-            'type': result.issue_type,
-            'severity': result.severity,
-            'question_id': result.question.question_id,
-            'question_text': result.question.question_text,
-            'target_sections': result.question.target_sections,
-            'models_correct': models_correct,
-            'models_incorrect': models_incorrect,
-            'consensus': result.consensus,
-            'recommendation': result.recommendation
+            "type": result.issue_type,
+            "severity": result.severity,
+            "question_id": result.question.question_id,
+            "question_text": result.question.question_text,
+            "target_sections": result.question.target_sections,
+            "models_correct": models_correct,
+            "models_incorrect": models_incorrect,
+            "consensus": result.consensus,
+            "recommendation": result.recommendation,
         }
 
 
 # Convenience function for simple usage
 def generate_questions_from_sections(
-    sections: List[Dict[str, Any]],
-    document_text: str,
-    document_path: str = ""
+    sections: List[Dict[str, Any]], document_text: str, document_path: str = ""
 ) -> QuestioningResult:
     """
     Generate questions from sections (convenience function).
@@ -1983,13 +1917,13 @@ def generate_questions_from_sections(
 
 
 # For testing the module directly
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     print("Question-Based Testing Module")
     print("=" * 50)
-    print(f"Version: 1.0.0-phase2")
-    print(f"Status: Phase 1 - Core Infrastructure")
+    print("Version: 1.0.0-phase2")
+    print("Status: Phase 1 - Core Infrastructure")
     print()
     print("Phase 1: Core dataclasses implemented")
     print("  ✓ Question dataclass")
@@ -2018,15 +1952,11 @@ if __name__ == '__main__':
         difficulty="basic",
         scope="section",
         target_sections=["section_3"],
-        expected_answer={
-            "text": "JSON format with UTF-8 encoding",
-            "source_lines": [45, 46],
-            "confidence": "high"
-        },
+        expected_answer={"text": "JSON format with UTF-8 encoding", "source_lines": [45, 46], "confidence": "high"},
         generation_method="template",
         template_id="factual_format_01",
         is_adversarial=False,
-        metadata={"testable_element": "requirement"}
+        metadata={"testable_element": "requirement"},
     )
 
     print(f"Question ID: {sample_question.question_id}")
@@ -2050,7 +1980,7 @@ if __name__ == '__main__':
         questions=[sample_question],
         document_path="test_document.md",
         generation_timestamp=datetime.now().isoformat(),
-        generator_version="1.0.0-phase2"
+        generator_version="1.0.0-phase2",
     )
 
     result.calculate_statistics(total_sections=10, total_elements=25)

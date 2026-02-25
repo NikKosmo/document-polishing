@@ -8,31 +8,33 @@ Supports multiple comparison strategies:
 """
 
 import json
-import re
 import logging
-from typing import Dict, List, Any, Optional, Callable
+import re
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any, Callable, Dict, List, Optional
 
 # Logger for judge responses
-judge_logger = logging.getLogger('judge_responses')
+judge_logger = logging.getLogger("judge_responses")
 
 
 class Severity(Enum):
     """Ambiguity severity levels"""
+
     CRITICAL = "critical"  # Completely different interpretations
-    HIGH = "high"          # Significant disagreement
-    MEDIUM = "medium"      # Partial disagreement or assumptions made
-    LOW = "low"            # Minor variations
+    HIGH = "high"  # Significant disagreement
+    MEDIUM = "medium"  # Partial disagreement or assumptions made
+    LOW = "low"  # Minor variations
 
 
 class JudgeFailureError(Exception):
     """
     Raised when the LLM-as-Judge fails to compare interpretations.
-    
+
     This exception triggers fail-fast behavior - the system should stop
     immediately rather than continuing with invalid results.
     """
+
     def __init__(self, section_id: str, reason: str, details: str = ""):
         self.section_id = section_id
         self.reason = reason
@@ -46,6 +48,7 @@ class JudgeFailureError(Exception):
 @dataclass
 class Interpretation:
     """Parsed interpretation from a model response"""
+
     model_name: str
     raw_response: str
     interpretation: str = ""
@@ -55,24 +58,24 @@ class Interpretation:
     error: Optional[str] = None
 
     @classmethod
-    def from_response(cls, model_name: str, response: Dict[str, Any]) -> 'Interpretation':
+    def from_response(cls, model_name: str, response: Dict[str, Any]) -> "Interpretation":
         """Create Interpretation from model response dict (already parsed format)"""
         # Handle error responses
-        if response.get('error'):
+        if response.get("error"):
             return cls(
                 model_name=model_name,
                 raw_response=str(response),
-                error=response.get('message', response.get('stderr', 'Unknown error'))
+                error=response.get("message", response.get("stderr", "Unknown error")),
             )
 
         # Accept parsed format directly (from test_results.json)
         return cls(
             model_name=model_name,
             raw_response=str(response),
-            interpretation=response.get('interpretation', ''),
-            steps=response.get('steps', []),
-            assumptions=response.get('assumptions', []),
-            ambiguities=response.get('ambiguities', [])
+            interpretation=response.get("interpretation", ""),
+            steps=response.get("steps", []),
+            assumptions=response.get("assumptions", []),
+            ambiguities=response.get("ambiguities", []),
         )
 
     @staticmethod
@@ -88,7 +91,7 @@ class Interpretation:
             pass
 
         # Try to find JSON block in markdown
-        json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
+        json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
         if json_match:
             try:
                 return json.loads(json_match.group(1))
@@ -109,6 +112,7 @@ class Interpretation:
 @dataclass
 class Ambiguity:
     """Detected ambiguity in a documentation section"""
+
     section_id: str
     section_header: str
     section_content: str
@@ -120,20 +124,20 @@ class Ambiguity:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization"""
         return {
-            'section_id': self.section_id,
-            'section_header': self.section_header,
-            'section_content': self.section_content,
-            'severity': self.severity.value,
-            'interpretations': {
+            "section_id": self.section_id,
+            "section_header": self.section_header,
+            "section_content": self.section_content,
+            "severity": self.severity.value,
+            "interpretations": {
                 name: {
-                    'interpretation': interp.interpretation,
-                    'steps': interp.steps,
-                    'assumptions': interp.assumptions,
-                    'ambiguities': interp.ambiguities
+                    "interpretation": interp.interpretation,
+                    "steps": interp.steps,
+                    "assumptions": interp.assumptions,
+                    "ambiguities": interp.ambiguities,
                 }
                 for name, interp in self.interpretations.items()
             },
-            'comparison_details': self.comparison_details
+            "comparison_details": self.comparison_details,
         }
 
 
@@ -142,54 +146,53 @@ class ComparisonStrategy:
 
     def compare(self, interpretations: List[Interpretation]) -> Dict[str, Any]:
         """
-Compare interpretations and return comparison result.
+        Compare interpretations and return comparison result.
 
-Returns:
-{
-'agree': bool,
-'similarity': float (0-1),
-'details': str,
-'groups': [[model_names], [model_names]]  # grouped by similar interpretation
-}
+        Returns:
+        {
+        'agree': bool,
+        'similarity': float (0-1),
+        'details': str,
+        'groups': [[model_names], [model_names]]  # grouped by similar interpretation
+        }
         """
         raise NotImplementedError
 
 
 class SimpleComparisonStrategy(ComparisonStrategy):
     """
-Simple keyword and structure-based comparison.
-No external dependencies required.
-"""
+    Simple keyword and structure-based comparison.
+    No external dependencies required.
+    """
 
     def __init__(self, similarity_threshold: float = 0.7):
         self.similarity_threshold = similarity_threshold
 
     def compare(self, interpretations: List[Interpretation]) -> Dict[str, Any]:
         if len(interpretations) < 2:
-            return {'agree': True, 'similarity': 1.0, 'details': 'Only one interpretation', 'groups': []}
+            return {"agree": True, "similarity": 1.0, "details": "Only one interpretation", "groups": []}
 
         # Extract key elements for comparison
         elements = []
         for interp in interpretations:
-            elements.append({
-                'model': interp.model_name,
-                'keywords': self._extract_keywords(interp.interpretation),
-                'step_count': len(interp.steps),
-                'has_assumptions': len(interp.assumptions) > 0,
-                'noted_ambiguities': len(interp.ambiguities) > 0
-            })
+            elements.append(
+                {
+                    "model": interp.model_name,
+                    "keywords": self._extract_keywords(interp.interpretation),
+                    "step_count": len(interp.steps),
+                    "has_assumptions": len(interp.assumptions) > 0,
+                    "noted_ambiguities": len(interp.ambiguities) > 0,
+                }
+            )
 
         # Compare pairwise
         similarities = []
         for i in range(len(elements)):
             for j in range(i + 1, len(elements)):
                 sim = self._calculate_similarity(elements[i], elements[j])
-                similarities.append({
-                    'pair': (elements[i]['model'], elements[j]['model']),
-                    'similarity': sim
-                })
+                similarities.append({"pair": (elements[i]["model"], elements[j]["model"]), "similarity": sim})
 
-        avg_similarity = sum(s['similarity'] for s in similarities) / len(similarities) if similarities else 1.0
+        avg_similarity = sum(s["similarity"] for s in similarities) / len(similarities) if similarities else 1.0
         agree = avg_similarity >= self.similarity_threshold
 
         # Group by similarity
@@ -200,26 +203,26 @@ No external dependencies required.
         if not agree:
             details_parts.append(f"Average similarity: {avg_similarity:.2f}")
             for s in similarities:
-                if s['similarity'] < self.similarity_threshold:
+                if s["similarity"] < self.similarity_threshold:
                     details_parts.append(f"{s['pair'][0]} vs {s['pair'][1]}: {s['similarity']:.2f}")
 
         # Check for assumptions (even if interpretations agree, assumptions indicate ambiguity)
-        models_with_assumptions = [e['model'] for e in elements if e['has_assumptions']]
+        models_with_assumptions = [e["model"] for e in elements if e["has_assumptions"]]
         if models_with_assumptions:
             details_parts.append(f"Models made assumptions: {', '.join(models_with_assumptions)}")
 
         # Check if models noted ambiguities
-        models_noting_ambiguity = [e['model'] for e in elements if e['noted_ambiguities']]
+        models_noting_ambiguity = [e["model"] for e in elements if e["noted_ambiguities"]]
         if models_noting_ambiguity:
             details_parts.append(f"Models noted ambiguities: {', '.join(models_noting_ambiguity)}")
 
         return {
-            'agree': agree and not models_with_assumptions,
-            'similarity': avg_similarity,
-            'details': '; '.join(details_parts) if details_parts else 'Interpretations agree',
-            'groups': groups,
-            'assumptions_made': models_with_assumptions,
-            'ambiguities_noted': models_noting_ambiguity
+            "agree": agree and not models_with_assumptions,
+            "similarity": avg_similarity,
+            "details": "; ".join(details_parts) if details_parts else "Interpretations agree",
+            "groups": groups,
+            "assumptions_made": models_with_assumptions,
+            "ambiguities_noted": models_noting_ambiguity,
         }
 
     def _extract_keywords(self, text: str) -> set:
@@ -232,27 +235,78 @@ No external dependencies required.
 
         # Remove common words
         stopwords = {
-            'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-            'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
-            'should', 'may', 'might', 'must', 'shall', 'can', 'need', 'to', 'of',
-            'in', 'for', 'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through',
-            'and', 'or', 'but', 'if', 'then', 'else', 'when', 'where', 'which',
-            'that', 'this', 'these', 'those', 'it', 'its', 'i', 'you', 'we', 'they'
+            "the",
+            "a",
+            "an",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+            "may",
+            "might",
+            "must",
+            "shall",
+            "can",
+            "need",
+            "to",
+            "of",
+            "in",
+            "for",
+            "on",
+            "with",
+            "at",
+            "by",
+            "from",
+            "as",
+            "into",
+            "through",
+            "and",
+            "or",
+            "but",
+            "if",
+            "then",
+            "else",
+            "when",
+            "where",
+            "which",
+            "that",
+            "this",
+            "these",
+            "those",
+            "it",
+            "its",
+            "i",
+            "you",
+            "we",
+            "they",
         }
 
         # Extract words
-        words = re.findall(r'\b[a-z]{3,}\b', text)
+        words = re.findall(r"\b[a-z]{3,}\b", text)
         keywords = set(words) - stopwords
 
         # Also extract numbers (important for quantities)
-        numbers = re.findall(r'\b\d+\b', text)
+        numbers = re.findall(r"\b\d+\b", text)
         keywords.update(numbers)
 
         return keywords
 
     def _calculate_similarity(self, elem1: Dict, elem2: Dict) -> float:
         """Calculate similarity between two element sets"""
-        kw1, kw2 = elem1['keywords'], elem2['keywords']
+        kw1, kw2 = elem1["keywords"], elem2["keywords"]
 
         if not kw1 and not kw2:
             return 1.0
@@ -265,8 +319,8 @@ No external dependencies required.
         keyword_sim = intersection / union if union > 0 else 0
 
         # Step count similarity (normalized difference)
-        max_steps = max(elem1['step_count'], elem2['step_count'], 1)
-        step_diff = abs(elem1['step_count'] - elem2['step_count'])
+        max_steps = max(elem1["step_count"], elem2["step_count"], 1)
+        step_diff = abs(elem1["step_count"] - elem2["step_count"])
         step_sim = 1 - (step_diff / max_steps)
 
         # Weighted combination
@@ -282,18 +336,18 @@ No external dependencies required.
         used = set()
 
         for i, elem in enumerate(elements):
-            if elem['model'] in used:
+            if elem["model"] in used:
                 continue
 
-            group = [elem['model']]
-            used.add(elem['model'])
+            group = [elem["model"]]
+            used.add(elem["model"])
 
-            for j, other_elem in enumerate(elements[i+1:], i+1):
-                if other_elem['model'] in used:
+            for _j, other_elem in enumerate(elements[i + 1 :], i + 1):
+                if other_elem["model"] in used:
                     continue
                 if self._calculate_similarity(elem, other_elem) >= self.similarity_threshold:
-                    group.append(other_elem['model'])
-                    used.add(other_elem['model'])
+                    group.append(other_elem["model"])
+                    used.add(other_elem["model"])
 
             groups.append(group)
 
@@ -302,21 +356,21 @@ No external dependencies required.
 
 class LLMJudgeStrategy(ComparisonStrategy):
     """
-Use an LLM to judge if interpretations agree.
-Requires a model query function to be provided.
-"""
+    Use an LLM to judge if interpretations agree.
+    Requires a model query function to be provided.
+    """
 
     def __init__(self, query_func: Callable[[str], Dict[str, Any]]):
         """
-Args:
-query_func: Function that takes a prompt string and returns model response dict
+        Args:
+        query_func: Function that takes a prompt string and returns model response dict
         """
         self.query_func = query_func
         self._current_section_id = None  # Set by AmbiguityDetector before each compare()
 
     def compare(self, interpretations: List[Interpretation]) -> Dict[str, Any]:
         if len(interpretations) < 2:
-            return {'agree': True, 'similarity': 1.0, 'details': 'Only one interpretation', 'groups': []}
+            return {"agree": True, "similarity": 1.0, "details": "Only one interpretation", "groups": []}
 
         # Build comparison prompt
         prompt = self._build_comparison_prompt(interpretations)
@@ -364,7 +418,7 @@ Respond with JSON only:
     def _parse_judge_response(self, response: Dict[str, Any], interpretations: List[Interpretation]) -> Dict[str, Any]:
         """
         Parse the judge model's response (already parsed JSON format).
-        
+
         Raises:
             JudgeFailureError: If the judge query failed or returned invalid response.
                               This triggers fail-fast behavior.
@@ -372,23 +426,19 @@ Respond with JSON only:
         section_id = self._current_section_id or "unknown_section"
 
         # Check for judge query errors (timeout, subprocess failure, etc.)
-        if response.get('error'):
-            error_msg = response.get('message', response.get('stderr', 'Unknown error'))
-            raise JudgeFailureError(
-                section_id=section_id,
-                reason="Judge query error",
-                details=error_msg
-            )
+        if response.get("error"):
+            error_msg = response.get("message", response.get("stderr", "Unknown error"))
+            raise JudgeFailureError(section_id=section_id, reason="Judge query error", details=error_msg)
 
         # Check for missing required field (invalid JSON response from judge)
-        if 'agree' not in response:
+        if "agree" not in response:
             raise JudgeFailureError(
                 section_id=section_id,
                 reason="Invalid judge response",
-                details=f"Missing 'agree' field. Response keys: {list(response.keys())}"
+                details=f"Missing 'agree' field. Response keys: {list(response.keys())}",
             )
 
-        agree = response.get('agree', False)
+        agree = response.get("agree", False)
 
         # Group models based on agreement
         if agree:
@@ -397,40 +447,39 @@ Respond with JSON only:
             groups = [[i.model_name] for i in interpretations]
 
         return {
-            'agree': agree,
-            'similarity': float(response.get('similarity', 0.5)),
-            'details': response.get('explanation', ''),
-            'groups': groups,
-            'key_differences': response.get('key_differences', []),
-            'shared_ambiguities': response.get('shared_ambiguities', False),
-            'shared_concerns': response.get('shared_concerns', [])
+            "agree": agree,
+            "similarity": float(response.get("similarity", 0.5)),
+            "details": response.get("explanation", ""),
+            "groups": groups,
+            "key_differences": response.get("key_differences", []),
+            "shared_ambiguities": response.get("shared_ambiguities", False),
+            "shared_concerns": response.get("shared_concerns", []),
         }
 
 
 class AmbiguityDetector:
     """
-Main ambiguity detection class.
+    Main ambiguity detection class.
 
-Usage:
-detector = AmbiguityDetector(strategy='simple')
-ambiguities = detector.detect(test_results)
-"""
+    Usage:
+    detector = AmbiguityDetector(strategy='simple')
+    ambiguities = detector.detect(test_results)
+    """
 
-    def __init__(self,
-                 strategy: str = 'simple',
-                 similarity_threshold: float = 0.7,
-                 llm_query_func: Optional[Callable] = None):
+    def __init__(
+        self, strategy: str = "simple", similarity_threshold: float = 0.7, llm_query_func: Optional[Callable] = None
+    ):
         """
-Args:
-strategy: 'simple' or 'llm_judge'
-similarity_threshold: Threshold for simple strategy (0-1)
-llm_query_func: Required if strategy='llm_judge'
+        Args:
+        strategy: 'simple' or 'llm_judge'
+        similarity_threshold: Threshold for simple strategy (0-1)
+        llm_query_func: Required if strategy='llm_judge'
         """
         self.strategy_name = strategy
 
-        if strategy == 'simple':
+        if strategy == "simple":
             self.strategy = SimpleComparisonStrategy(similarity_threshold)
-        elif strategy == 'llm_judge':
+        elif strategy == "llm_judge":
             if llm_query_func is None:
                 raise ValueError("llm_query_func required for llm_judge strategy")
             self.strategy = LLMJudgeStrategy(llm_query_func)
@@ -439,22 +488,22 @@ llm_query_func: Required if strategy='llm_judge'
 
     def detect(self, test_results: Dict[str, Dict]) -> List[Ambiguity]:
         """
-Detect ambiguities in test results.
+        Detect ambiguities in test results.
 
-Args:
-test_results: Dict mapping section_id to {
-'section': {'header': str, 'content': str, ...},
-'results': {model_name: response_dict, ...}
-}
+        Args:
+        test_results: Dict mapping section_id to {
+        'section': {'header': str, 'content': str, ...},
+        'results': {model_name: response_dict, ...}
+        }
 
-Returns:
-List of detected Ambiguity objects
+        Returns:
+        List of detected Ambiguity objects
         """
         ambiguities = []
 
         for section_id, data in test_results.items():
-            section = data.get('section', {})
-            results = data.get('results', {})
+            section = data.get("section", {})
+            results = data.get("results", {})
 
             # Parse interpretations, filtering out faulty/empty ones
             interpretations = {}
@@ -469,70 +518,82 @@ List of detected Ambiguity objects
 
             # Need at least 2 valid interpretations to compare
             if len(interpretations) < 2:
+                section_header = section.get("header", section_id)
+                print(
+                    f"  ⚠ Skipping '{section_header}': only {len(interpretations)} model(s) responded (need ≥2 for comparison)"
+                )
                 continue
 
             # Set section context for LLMJudgeStrategy (used for error messages)
-            if hasattr(self.strategy, '_current_section_id'):
+            if hasattr(self.strategy, "_current_section_id"):
                 self.strategy._current_section_id = section_id
 
             # Compare interpretations (may raise JudgeFailureError for LLM judge)
             comparison = self.strategy.compare(list(interpretations.values()))
 
             # Log judge response
-            judge_logger.info(json.dumps({
-                'section_id': section_id,
-                'section_header': section.get('header', 'Unknown'),
-                'models_compared': list(interpretations.keys()),
-                'judge_response': comparison
-            }, indent=2))
+            judge_logger.info(
+                json.dumps(
+                    {
+                        "section_id": section_id,
+                        "section_header": section.get("header", "Unknown"),
+                        "models_compared": list(interpretations.keys()),
+                        "judge_response": comparison,
+                    },
+                    indent=2,
+                )
+            )
 
             # Determine if this is an ambiguity
-            if not comparison['agree']:
+            if not comparison["agree"]:
                 severity = self._determine_severity(comparison)
 
-                ambiguities.append(Ambiguity(
-                                       section_id=section_id,
-                                       section_header=section.get('header', 'Unknown'),
-                                       section_content=section.get('content', ''),
-                                       severity=severity,
-                                       interpretations=interpretations,
-                                       comparison_details=comparison
-                                   ))
+                ambiguities.append(
+                    Ambiguity(
+                        section_id=section_id,
+                        section_header=section.get("header", "Unknown"),
+                        section_content=section.get("content", ""),
+                        severity=severity,
+                        interpretations=interpretations,
+                        comparison_details=comparison,
+                    )
+                )
 
             # Also flag sections where models made assumptions (even if they agree)
-            elif comparison.get('assumptions_made'):
-                ambiguities.append(Ambiguity(
-                                       section_id=section_id,
-                                       section_header=section.get('header', 'Unknown'),
-                                       section_content=section.get('content', ''),
-                                       severity=Severity.LOW,
-                                       interpretations=interpretations,
-                                       comparison_details={
-                                           **comparison,
-                                           'reason': 'Models agreed but made assumptions'
-                                       }
-                                   ))
+            elif comparison.get("assumptions_made"):
+                ambiguities.append(
+                    Ambiguity(
+                        section_id=section_id,
+                        section_header=section.get("header", "Unknown"),
+                        section_content=section.get("content", ""),
+                        severity=Severity.LOW,
+                        interpretations=interpretations,
+                        comparison_details={**comparison, "reason": "Models agreed but made assumptions"},
+                    )
+                )
 
             # Also flag sections where models noted similar ambiguities
-            elif comparison.get('shared_ambiguities'):
-                shared_concerns = comparison.get('shared_concerns', [])
+            elif comparison.get("shared_ambiguities"):
+                shared_concerns = comparison.get("shared_concerns", [])
                 # TODO: Consider whether severity should be based on len(interpretations)
                 # (total models participating) or number of models that actually noted
                 # ambiguities. Current approach uses total participating models.
                 severity = Severity.MEDIUM if len(interpretations) >= 3 else Severity.LOW
 
-                ambiguities.append(Ambiguity(
-                                       section_id=section_id,
-                                       section_header=section.get('header', 'Unknown'),
-                                       section_content=section.get('content', ''),
-                                       severity=severity,
-                                       interpretations=interpretations,
-                                       comparison_details={
-                                           **comparison,
-                                           'reason': 'Models agreed but all noted similar concerns',
-                                           'shared_concerns': shared_concerns
-                                       }
-                                   ))
+                ambiguities.append(
+                    Ambiguity(
+                        section_id=section_id,
+                        section_header=section.get("header", "Unknown"),
+                        section_content=section.get("content", ""),
+                        severity=severity,
+                        interpretations=interpretations,
+                        comparison_details={
+                            **comparison,
+                            "reason": "Models agreed but all noted similar concerns",
+                            "shared_concerns": shared_concerns,
+                        },
+                    )
+                )
 
         # Sort by severity
         severity_order = {Severity.CRITICAL: 0, Severity.HIGH: 1, Severity.MEDIUM: 2, Severity.LOW: 3}
@@ -542,8 +603,8 @@ List of detected Ambiguity objects
 
     def _determine_severity(self, comparison: Dict[str, Any]) -> Severity:
         """Determine ambiguity severity based on comparison results"""
-        similarity = comparison.get('similarity', 0.5)
-        groups = comparison.get('groups', [])
+        similarity = comparison.get("similarity", 0.5)
+        groups = comparison.get("groups", [])
 
         # All models disagree (each in own group)
         if len(groups) >= 3:
@@ -562,11 +623,11 @@ List of detected Ambiguity objects
 
 def detect_ambiguities_simple(test_results: Dict[str, Dict], threshold: float = 0.7) -> List[Dict]:
     """
-Convenience function for simple ambiguity detection.
+    Convenience function for simple ambiguity detection.
 
-Returns list of dicts (JSON-serializable) instead of Ambiguity objects.
+    Returns list of dicts (JSON-serializable) instead of Ambiguity objects.
     """
-    detector = AmbiguityDetector(strategy='simple', similarity_threshold=threshold)
+    detector = AmbiguityDetector(strategy="simple", similarity_threshold=threshold)
     ambiguities = detector.detect(test_results)
     return [a.to_dict() for a in ambiguities]
 
@@ -578,7 +639,7 @@ if __name__ == "__main__":
         "section_0": {
             "section": {
                 "header": "Step 2: Generate Output",
-                "content": "Create N cards per word with the required information."
+                "content": "Create N cards per word with the required information.",
             },
             "results": {
                 "claude": {
@@ -586,13 +647,13 @@ if __name__ == "__main__":
                 },
                 "gemini": {
                     "raw_response": '{"interpretation": "Create a single entry per word that will be expanded to N cards", "steps": ["Parse word", "Create combined entry"], "assumptions": ["N will be determined by word type"], "ambiguities": ["Unclear what N means"]}'
-                }
-            }
+                },
+            },
         }
     }
 
     print("Testing SimpleComparisonStrategy...")
-    detector = AmbiguityDetector(strategy='simple', similarity_threshold=0.7)
+    detector = AmbiguityDetector(strategy="simple", similarity_threshold=0.7)
     ambiguities = detector.detect(test_data)
 
     print(f"\nFound {len(ambiguities)} ambiguities:")

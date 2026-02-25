@@ -15,26 +15,25 @@ Commands:
     coverage - Show coverage report
 """
 
-import sys
-import json
 import argparse
+import json
+import sys
 from pathlib import Path
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent / 'src'))
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from questioning_step import (
-    QuestioningStep,
     QuestioningResult,
-    Question,
+    QuestioningStep,
     QuestionValidator,
-    TestableElement
+    TestableElement,
 )
 
 
 def cmd_generate(args):
     """Generate questions from sections."""
-    print(f"Question Generation")
+    print("Question Generation")
     print("=" * 70)
     print()
 
@@ -44,10 +43,10 @@ def cmd_generate(args):
         print(f"❌ Error: Sections file not found: {sections_path}")
         return 1
 
-    with open(sections_path, 'r', encoding='utf-8') as f:
+    with open(sections_path, "r", encoding="utf-8") as f:
         sections_data = json.load(f)
 
-    sections = sections_data.get('sections', [])
+    sections = sections_data.get("sections", [])
     print(f"📄 Loaded {len(sections)} sections from {sections_path.name}")
 
     # Load document
@@ -56,7 +55,7 @@ def cmd_generate(args):
         print(f"❌ Error: Document not found: {document_path}")
         return 1
 
-    with open(document_path, 'r', encoding='utf-8') as f:
+    with open(document_path, "r", encoding="utf-8") as f:
         document_text = f.read()
 
     print(f"📄 Loaded document: {document_path.name}")
@@ -67,44 +66,44 @@ def cmd_generate(args):
     print()
 
     step = QuestioningStep(template_path=args.template_path)
-    result = step.generate_questions(
-        sections=sections,
-        document_text=document_text,
-        document_path=str(document_path)
-    )
+    result = step.generate_questions(sections=sections, document_text=document_text, document_path=str(document_path))
 
     # Display statistics
     stats = result.statistics
     print("📊 Generation Statistics")
     print("-" * 70)
     print(f"  Total questions: {stats['total_questions']}")
-    print(f"  Section coverage: {stats['coverage']['sections_covered']}/{stats['coverage']['total_sections']} sections ({stats['coverage']['section_coverage_pct']}%)")
-    print(f"  Element coverage: {stats['coverage']['elements_covered']}/{stats['coverage']['total_elements']} elements ({stats['coverage']['element_coverage_pct']}%)")
+    print(
+        f"  Section coverage: {stats['coverage']['sections_covered']}/{stats['coverage']['total_sections']} sections ({stats['coverage']['section_coverage_pct']}%)"
+    )
+    print(
+        f"  Element coverage: {stats['coverage']['elements_covered']}/{stats['coverage']['total_elements']} elements ({stats['coverage']['element_coverage_pct']}%)"
+    )
     print()
-    print(f"  By category:")
-    for category, count in stats['by_category'].items():
+    print("  By category:")
+    for category, count in stats["by_category"].items():
         print(f"    - {category}: {count}")
     print()
-    print(f"  By difficulty:")
-    for difficulty, count in stats['by_difficulty'].items():
+    print("  By difficulty:")
+    for difficulty, count in stats["by_difficulty"].items():
         print(f"    - {difficulty}: {count}")
     print()
 
     # Save result
     output_dir = args.output
     result.save(output_dir)
-    output_path = Path(output_dir) / 'questions.json'
+    output_path = Path(output_dir) / "questions.json"
     print(f"✅ Saved questions to: {output_path}")
     print()
 
     # Coverage assessment
-    section_coverage = stats['coverage']['section_coverage_pct']
-    element_coverage = stats['coverage']['element_coverage_pct']
+    section_coverage = stats["coverage"]["section_coverage_pct"]
+    element_coverage = stats["coverage"]["element_coverage_pct"]
 
     if section_coverage >= 70.0 and element_coverage >= 60.0:
         print("✅ Coverage targets met (70% sections, 60% elements)")
     else:
-        print(f"⚠️  Coverage below targets:")
+        print("⚠️  Coverage below targets:")
         if section_coverage < 70.0:
             print(f"   - Section coverage: {section_coverage}% (target: 70%)")
         if element_coverage < 60.0:
@@ -115,7 +114,7 @@ def cmd_generate(args):
 
 def cmd_validate(args):
     """Validate existing questions."""
-    print(f"Question Validation")
+    print("Question Validation")
     print("=" * 70)
     print()
 
@@ -143,30 +142,30 @@ def cmd_validate(args):
     for question in questions:
         # Create stub element for validation (we don't have original elements)
         element = TestableElement(
-            element_type=question.metadata.get('testable_element', 'unknown'),
-            text=question.metadata.get('element_text', ''),
-            section_id=question.target_sections[0] if question.target_sections else 'unknown',
-            section_title='',
-            start_line=question.expected_answer.get('source_lines', [0])[0],
-            end_line=question.expected_answer.get('source_lines', [0, 0])[1],
-            context=question.expected_answer['text']  # Use answer as context
+            element_type=question.metadata.get("testable_element", "unknown"),
+            text=question.metadata.get("element_text", ""),
+            section_id=question.target_sections[0] if question.target_sections else "unknown",
+            section_title="",
+            start_line=question.expected_answer.get("source_lines", [0])[0],
+            end_line=question.expected_answer.get("source_lines", [0, 0])[1],
+            context=question.expected_answer["text"],  # Use answer as context
         )
 
-        is_valid, reason = validator.validate(
-            question.question_text,
-            question.expected_answer['text'],
-            element
-        )
+        is_valid, reason = validator.validate(question.question_text, question.expected_answer["text"], element)
 
         if is_valid:
             valid_count += 1
         else:
             invalid_count += 1
-            issues.append({
-                'question_id': question.question_id,
-                'question': question.question_text[:80] + '...' if len(question.question_text) > 80 else question.question_text,
-                'reason': reason
-            })
+            issues.append(
+                {
+                    "question_id": question.question_id,
+                    "question": question.question_text[:80] + "..."
+                    if len(question.question_text) > 80
+                    else question.question_text,
+                    "reason": reason,
+                }
+            )
 
     # Display results
     print(f"✅ Valid questions: {valid_count}")
@@ -186,7 +185,7 @@ def cmd_validate(args):
 
 def cmd_coverage(args):
     """Show coverage report."""
-    print(f"Coverage Report")
+    print("Coverage Report")
     print("=" * 70)
     print()
 
@@ -211,33 +210,33 @@ def cmd_coverage(args):
     # Display coverage
     print("📈 Coverage Metrics")
     print("-" * 70)
-    coverage = stats['coverage']
-    print(f"  Section coverage:")
+    coverage = stats["coverage"]
+    print("  Section coverage:")
     print(f"    - Covered: {coverage['sections_covered']}/{coverage['total_sections']} sections")
     print(f"    - Percentage: {coverage['section_coverage_pct']}%")
-    print(f"    - Target: 70.0%")
+    print("    - Target: 70.0%")
     print(f"    - Status: {'✅ Met' if coverage['section_coverage_pct'] >= 70.0 else '❌ Below target'}")
     print()
-    print(f"  Element coverage:")
+    print("  Element coverage:")
     print(f"    - Covered: {coverage['elements_covered']}/{coverage['total_elements']} elements")
     print(f"    - Percentage: {coverage['element_coverage_pct']}%")
-    print(f"    - Target: 60.0%")
+    print("    - Target: 60.0%")
     print(f"    - Status: {'✅ Met' if coverage['element_coverage_pct'] >= 60.0 else '❌ Below target'}")
     print()
 
     # Display breakdown
     print("📋 Question Breakdown")
     print("-" * 70)
-    print(f"  By scope:")
+    print("  By scope:")
     print(f"    - Section-level: {stats['section_level']}")
     print(f"    - Document-level: {stats['document_level']}")
     print()
-    print(f"  By category:")
-    for category, count in sorted(stats['by_category'].items()):
+    print("  By category:")
+    for category, count in sorted(stats["by_category"].items()):
         print(f"    - {category}: {count}")
     print()
-    print(f"  By difficulty:")
-    for difficulty, count in sorted(stats['by_difficulty'].items()):
+    print("  By difficulty:")
+    for difficulty, count in sorted(stats["by_difficulty"].items()):
         print(f"    - {difficulty}: {count}")
     print()
     print(f"  Adversarial questions: {stats['adversarial']}")
@@ -249,7 +248,7 @@ def cmd_coverage(args):
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description='Question-based testing framework CLI',
+        description="Question-based testing framework CLI",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -261,25 +260,25 @@ Examples:
 
   # Show coverage report
   python generate_questions.py coverage workspace/questions.json
-        """
+        """,
     )
 
-    subparsers = parser.add_subparsers(dest='command', help='Command to run')
+    subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
     # Generate command
-    parser_gen = subparsers.add_parser('generate', help='Generate questions from sections')
-    parser_gen.add_argument('sections_json', help='Path to sections.json file')
-    parser_gen.add_argument('document_md', help='Path to source document')
-    parser_gen.add_argument('--output', default='workspace/', help='Output directory (default: workspace/)')
-    parser_gen.add_argument('--template-path', help='Path to question_templates.json (optional)')
+    parser_gen = subparsers.add_parser("generate", help="Generate questions from sections")
+    parser_gen.add_argument("sections_json", help="Path to sections.json file")
+    parser_gen.add_argument("document_md", help="Path to source document")
+    parser_gen.add_argument("--output", default="workspace/", help="Output directory (default: workspace/)")
+    parser_gen.add_argument("--template-path", help="Path to question_templates.json (optional)")
 
     # Validate command
-    parser_val = subparsers.add_parser('validate', help='Validate existing questions')
-    parser_val.add_argument('questions_json', help='Path to questions.json file')
+    parser_val = subparsers.add_parser("validate", help="Validate existing questions")
+    parser_val.add_argument("questions_json", help="Path to questions.json file")
 
     # Coverage command
-    parser_cov = subparsers.add_parser('coverage', help='Show coverage report')
-    parser_cov.add_argument('questions_json', help='Path to questions.json file')
+    parser_cov = subparsers.add_parser("coverage", help="Show coverage report")
+    parser_cov.add_argument("questions_json", help="Path to questions.json file")
 
     args = parser.parse_args()
 
@@ -288,16 +287,16 @@ Examples:
         return 1
 
     # Route to command
-    if args.command == 'generate':
+    if args.command == "generate":
         return cmd_generate(args)
-    elif args.command == 'validate':
+    elif args.command == "validate":
         return cmd_validate(args)
-    elif args.command == 'coverage':
+    elif args.command == "coverage":
         return cmd_coverage(args)
     else:
         parser.print_help()
         return 1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

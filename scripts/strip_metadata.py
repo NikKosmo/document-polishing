@@ -6,6 +6,7 @@ Removes HTML comment blocks that start with @meta, @assertion, etc.
 Uses line-by-line parsing, no regex.
 """
 
+
 def strip_metadata(content: str) -> str:
     """
     Remove @-prefixed HTML comment blocks and wrappers.
@@ -35,18 +36,18 @@ def strip_metadata(content: str) -> str:
         stripped_line = line.strip()
 
         # Check if ending a block (standalone -->)
-        if inside_block and stripped_line == '-->':
+        if inside_block and stripped_line == "-->":
             inside_block = False
             continue
 
         # Check if wrapper closing tag <!-- @/... -->
-        if stripped_line.startswith('<!-- @/'):
+        if stripped_line.startswith("<!-- @/"):
             continue
 
         # Check if starting a metadata tag
-        if stripped_line.startswith('<!-- @'):
+        if stripped_line.startswith("<!-- @"):
             # Is it complete on one line (wrapper) or multi-line (block)?
-            if stripped_line.endswith('-->'):
+            if stripped_line.endswith("-->"):
                 # Wrapper: complete single-line tag, skip only this line
                 continue
             else:
@@ -62,13 +63,13 @@ def strip_metadata(content: str) -> str:
         output.append(line)
 
     # Join and clean up excessive blank lines
-    result = ''.join(output)
+    result = "".join(output)
 
     # Replace 3+ consecutive newlines with 2
-    while '\n\n\n' in result:
-        result = result.replace('\n\n\n', '\n\n')
+    while "\n\n\n" in result:
+        result = result.replace("\n\n\n", "\n\n")
 
-    return result.strip() + '\n'
+    return result.strip() + "\n"
 
 
 def validate_clean(bulky: str, clean: str) -> dict:
@@ -86,7 +87,7 @@ def validate_clean(bulky: str, clean: str) -> dict:
     issues = []
 
     # Check: No leakage
-    for marker in ['@meta', '@assertion']:
+    for marker in ["@meta", "@assertion"]:
         if marker in clean:
             issues.append(f"Leaked marker: {marker}")
 
@@ -100,20 +101,20 @@ def validate_clean(bulky: str, clean: str) -> dict:
         issues.append("Not idempotent: strip(strip(x)) != strip(x)")
 
     return {
-        'valid': len(issues) == 0,
-        'issues': issues,
-        'lines_removed': len(bulky.splitlines()) - len(clean.splitlines())
+        "valid": len(issues) == 0,
+        "issues": issues,
+        "lines_removed": len(bulky.splitlines()) - len(clean.splitlines()),
     }
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     if len(sys.argv) != 2:
         print("Usage: python strip_metadata.py <bulky-file>")
         sys.exit(1)
 
-    with open(sys.argv[1], 'r') as f:
+    with open(sys.argv[1], "r") as f:
         bulky_content = f.read()
 
     clean_content = strip_metadata(bulky_content)
@@ -121,14 +122,14 @@ if __name__ == '__main__':
     # Validate
     result = validate_clean(bulky_content, clean_content)
 
-    if not result['valid']:
+    if not result["valid"]:
         print("ERROR: Validation failed:", file=sys.stderr)
-        for issue in result['issues']:
+        for issue in result["issues"]:
             print(f"  - {issue}", file=sys.stderr)
         sys.exit(1)
 
     # Output clean content
-    print(clean_content, end='')
+    print(clean_content, end="")
 
     # Report to stderr
     print(f"✓ Stripped {result['lines_removed']} lines", file=sys.stderr)

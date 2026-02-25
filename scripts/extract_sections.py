@@ -11,20 +11,19 @@ import sys
 from pathlib import Path
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent / 'src'))
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from extraction_step import ExtractionStep
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Extract testable sections from markdown document',
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        description="Extract testable sections from markdown document",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument('document', help='Path to markdown document')
-    parser.add_argument('--output', default='sections.json',
-                       help='Output JSON file (default: sections.json)')
-    parser.add_argument('--workspace', help='Workspace directory (optional)')
+    parser.add_argument("document", help="Path to markdown document")
+    parser.add_argument("--output", default="sections.json", help="Output JSON file (default: sections.json)")
+    parser.add_argument("--workspace", help="Workspace directory (optional)")
 
     args = parser.parse_args()
 
@@ -61,5 +60,5 @@ def main():
         return 1
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

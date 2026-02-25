@@ -7,8 +7,8 @@ It wraps the DocumentProcessor to extract sections and provides serialization fo
 
 import json
 from dataclasses import dataclass, field
-from typing import List, Dict
 from pathlib import Path
+from typing import Dict, List
 
 from document_processor import DocumentProcessor
 
@@ -21,6 +21,7 @@ class ExtractionResult:
     Contains all extracted sections, summary information, full document content,
     and the original document path. Can be saved to/loaded from JSON.
     """
+
     sections: List[Dict] = field(default_factory=list)
     summary: List[str] = field(default_factory=list)
     document_content: str = ""
@@ -37,17 +38,17 @@ class ExtractionResult:
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
         data = {
-            'sections': self.sections,
-            'summary': self.summary,
-            'document_content': self.document_content,
-            'document_path': self.document_path
+            "sections": self.sections,
+            "summary": self.summary,
+            "document_content": self.document_content,
+            "document_path": self.document_path,
         }
 
-        with open(output_file, 'w', encoding='utf-8') as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
     @classmethod
-    def load(cls, input_path: str) -> 'ExtractionResult':
+    def load(cls, input_path: str) -> "ExtractionResult":
         """
         Load extraction result from JSON file.
 
@@ -65,14 +66,14 @@ class ExtractionResult:
         if not input_file.exists():
             raise FileNotFoundError(f"Extraction result not found: {input_path}")
 
-        with open(input_file, 'r', encoding='utf-8') as f:
+        with open(input_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         return cls(
-            sections=data.get('sections', []),
-            summary=data.get('summary', []),
-            document_content=data.get('document_content', ''),
-            document_path=data.get('document_path', '')
+            sections=data.get("sections", []),
+            summary=data.get("summary", []),
+            document_content=data.get("document_content", ""),
+            document_path=data.get("document_path", ""),
         )
 
 
@@ -122,10 +123,7 @@ class ExtractionStep:
 
         # Build and return result
         return ExtractionResult(
-            sections=sections,
-            summary=summary,
-            document_content=document_content,
-            document_path=self.document_path
+            sections=sections, summary=summary, document_content=document_content, document_path=self.document_path
         )
 
 
@@ -145,7 +143,7 @@ def extract_sections_from_document(document_path: str) -> ExtractionResult:
 
 
 # For testing the module directly
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     if len(sys.argv) < 2:
@@ -153,7 +151,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     document_path = sys.argv[1]
-    output_path = sys.argv[2] if len(sys.argv) > 2 else 'sections.json'
+    output_path = sys.argv[2] if len(sys.argv) > 2 else "sections.json"
 
     print(f"Extracting sections from: {document_path}")
     step = ExtractionStep(document_path)
