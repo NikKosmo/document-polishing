@@ -1,7 +1,7 @@
 """
 Session Initialization Step - Initialize model sessions with document context
 
-This module provides a clean interface for Step 1.5 of the document polishing pipeline.
+This module provides a clean interface for Step 2 of the document polishing pipeline.
 It initializes model sessions with full document context to improve interpretation quality.
 """
 
@@ -79,7 +79,7 @@ class SessionInitResult:
 
 class SessionInitStep:
     """
-    Step 1.5: Initialize model sessions with document context.
+    Step 2: Initialize model sessions with document context.
 
     This class wraps SessionManager to provide a clean interface for initializing
     model sessions with full document context, improving section interpretation quality.

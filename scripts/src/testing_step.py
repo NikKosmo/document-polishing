@@ -1,7 +1,7 @@
 """
 Testing Step - Test sections with AI models
 
-This module provides a clean interface for Step 2 of the document polishing pipeline.
+This module provides a clean interface for Step 3 of the document polishing pipeline.
 It queries multiple AI models to collect their interpretations of documentation sections.
 """
 
@@ -77,7 +77,7 @@ class TestingResult:
 
 class TestingStep:
     """
-    Step 2: Test documentation sections with AI models.
+    Step 3: Test documentation sections with AI models.
 
     This class wraps ModelManager and PromptGenerator to provide a clean interface
     for testing sections and collecting model interpretations.
