@@ -27,6 +27,13 @@ class CLIModel(ModelInterface):
         self.args = args or []
         self.timeout = timeout
 
+    # Prepended to every CLI prompt to prevent wrapper formats (PAI, markdown fences, etc.)
+    _GUARD = (
+        "CRITICAL: Output ONLY a single raw JSON object. No preamble, no explanation, "
+        "no markdown code fences, no frameworks, no wrappers. Do not read any files. "
+        "Do not use any tools. Your entire response must be parseable by json.loads().\n\n"
+    )
+
     def query(self, prompt: str) -> Dict[str, Any]:
         """Execute CLI command with prompt and return parsed response"""
         try:
@@ -37,7 +44,9 @@ class CLIModel(ModelInterface):
             # Strip CLAUDECODE env var to allow Claude CLI inside Claude Code sessions
             env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
 
-            result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=self.timeout, env=env)
+            result = subprocess.run(
+                cmd, input=self._GUARD + prompt, capture_output=True, text=True, timeout=self.timeout, env=env
+            )
 
             if result.returncode != 0:
                 return {"error": True, "stderr": result.stderr, "raw_response": result.stdout}
