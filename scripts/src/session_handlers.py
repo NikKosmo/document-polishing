@@ -5,7 +5,10 @@ import os
 import re
 import subprocess
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Dict, Optional
+
+_NOHOOKS_DIR = Path.home() / ".config" / "nohooks"
 
 
 class SessionError(Exception):
@@ -81,7 +84,13 @@ class BaseSessionHandler(ABC):
             env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
 
             result = subprocess.run(
-                cmd, input=input_text, capture_output=True, text=True, timeout=self.timeout, env=env
+                cmd,
+                input=input_text,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout,
+                env=env,
+                cwd=_NOHOOKS_DIR,
             )
             return result
         except subprocess.TimeoutExpired:

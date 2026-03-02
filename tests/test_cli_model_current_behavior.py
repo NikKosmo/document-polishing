@@ -17,7 +17,7 @@ def test_query_parses_json_fenced(monkeypatch):
 
     payload = """```json\n{\"ok\": true,\"n\": 1}\n```"""
 
-    def fake_run(cmd, input, capture_output, text, timeout, env=None):
+    def fake_run(cmd, input, capture_output, text, timeout, env=None, cwd=None):
         return FakeCompletedProcess(stdout=payload, stderr="", returncode=0)
 
     monkeypatch.setattr("subprocess.run", fake_run)
@@ -33,7 +33,7 @@ def test_query_returns_raw_when_not_json(monkeypatch):
 
     payload = "not a json payload"
 
-    def fake_run(cmd, input, capture_output, text, timeout, env=None):
+    def fake_run(cmd, input, capture_output, text, timeout, env=None, cwd=None):
         return FakeCompletedProcess(stdout=payload, stderr="", returncode=0)
 
     monkeypatch.setattr("subprocess.run", fake_run)
@@ -48,7 +48,7 @@ def test_query_handles_timeout(monkeypatch):
     model_interface = __import__("model_interface")
     CLIModel = model_interface.CLIModel
 
-    def fake_run(cmd, input, capture_output, text, timeout, env=None):
+    def fake_run(cmd, input, capture_output, text, timeout, env=None, cwd=None):
         raise __import__("subprocess").TimeoutExpired(cmd=cmd, timeout=timeout)
 
     monkeypatch.setattr("subprocess.run", fake_run)
