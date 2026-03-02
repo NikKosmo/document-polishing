@@ -4,7 +4,10 @@ import json
 import os
 import subprocess
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Dict, Optional
+
+_NOHOOKS_DIR = Path.home() / ".config" / "nohooks"
 
 from session_handlers import SessionCreationError, SessionQueryError
 from session_manager import SessionManager
@@ -45,7 +48,13 @@ class CLIModel(ModelInterface):
             env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
 
             result = subprocess.run(
-                cmd, input=self._GUARD + prompt, capture_output=True, text=True, timeout=self.timeout, env=env
+                cmd,
+                input=self._GUARD + prompt,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout,
+                env=env,
+                cwd=_NOHOOKS_DIR,
             )
 
             if result.returncode != 0:
