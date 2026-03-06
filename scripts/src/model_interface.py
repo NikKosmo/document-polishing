@@ -47,6 +47,11 @@ class CLIModel(ModelInterface):
             # Strip CLAUDECODE env var to allow Claude CLI inside Claude Code sessions
             env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
 
+            # Inject --setting-sources local for Claude CLI to prevent loading
+            # global ~/.claude/CLAUDE.md (which injects PAI context into responses)
+            if cmd and cmd[0] == "claude" and "--setting-sources" not in cmd:
+                cmd = cmd[:1] + ["--setting-sources", "local"] + cmd[1:]
+
             result = subprocess.run(
                 cmd,
                 input=self._GUARD + prompt,

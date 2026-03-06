@@ -33,6 +33,10 @@ def main():
     parser.add_argument("--output-report", default="report.md", help="Output report file (default: report.md)")
     parser.add_argument("--output-polished", help="Output polished document (default: {doc}_polished.md)")
     parser.add_argument("--workspace", help="Workspace directory (optional)")
+    parser.add_argument(
+        "--question-results",
+        help="Directory containing question_responses.json and question_evaluations.json",
+    )
 
     args = parser.parse_args()
 
@@ -71,11 +75,25 @@ def main():
     print(f"Generating report from {len(testing_result.test_results)} sections...")
     print(f"Ambiguities found: {len(detection_result.ambiguities)}")
 
+    # Load question results if provided
+    question_result = None
+    if args.question_results:
+        try:
+            from questioning_step import QuestioningResult
+
+            question_result = QuestioningResult.load(args.question_results)
+            print(f"Question results loaded from: {args.question_results}")
+        except Exception as e:
+            print(f"Warning: Failed to load question results: {e}", file=sys.stderr)
+
     # Generate report
     try:
         step = ReportingStep(args.session_id, args.document, args.judge)
         report_content = step.generate_report(
-            testing_result.test_results, detection_result.ambiguities, testing_result.model_names
+            testing_result.test_results,
+            detection_result.ambiguities,
+            testing_result.model_names,
+            question_result=question_result,
         )
 
         # Save report

@@ -28,6 +28,7 @@ from document_processor import DocumentProcessor
 from extraction_step import ExtractionStep
 from model_interface import ModelManager
 from prompt_generator import PromptGenerator
+from questioning_step import QuestioningStep, load_question_set
 from reporting_step import ReportingStep
 from session_init_step import SessionInitStep
 from testing_step import TestingStep
@@ -140,7 +141,7 @@ class DocumentPolisher:
             print(f"  Judge model '{self.judge_model}' not available, using simple strategy")
             return AmbiguityDetector(strategy="simple", similarity_threshold=0.7)
 
-    def polish(self, models: list = None, profile: str = None):
+    def polish(self, models: list = None, profile: str = None, questions_path: str = None):
         """Run the polishing process"""
         print(f"\n{'=' * 60}")
         print("Starting Documentation Polish")
@@ -283,11 +284,34 @@ class DocumentPolisher:
         detection_result.save(str(ambiguities_file))
         print(f"  Ambiguities saved to: {ambiguities_file}")
 
-        # Step 5: Generate report
-        print("\nStep 5: Generating report...")
-        self._log("Step 5: Generating report...")
+        # Step 5: Whole-document question testing (optional)
+        question_result = None
+        if questions_path:
+            print("\nStep 5: Question testing...")
+            self._log("Step 5: Question testing...")
+
+            question_set = load_question_set(questions_path)
+            questioning_step = QuestioningStep(self.config["models"], self.session_config, judge_model=self.judge_model)
+            question_result = questioning_step.run(
+                question_set=question_set,
+                document_content=extraction_result.document_content,
+                model_names=models,
+            )
+            question_result.save(str(self.workspace))
+            self._log("Question testing complete")
+            print(f"  Question responses saved to: {self.workspace / 'question_responses.json'}")
+            print(f"  Question evaluations saved to: {self.workspace / 'question_evaluations.json'}")
+        else:
+            print("\nStep 5: Question testing -- skipped")
+            self._log("Step 5: Question testing -- skipped")
+
+        # Step 6: Generate report
+        print("\nStep 6: Generating report...")
+        self._log("Step 6: Generating report...")
         reporting_step = ReportingStep(self.session_id, str(self.document_path), self.judge_model)
-        report_content = reporting_step.generate_report(test_results, ambiguities, models)
+        report_content = reporting_step.generate_report(
+            test_results, ambiguities, models, question_result=question_result
+        )
 
         report_file = self.workspace / "report.md"
         with open(report_file, "w") as f:
@@ -463,6 +487,7 @@ def main():
     parser.add_argument("--version", action="store_true", help="Show version")
     parser.add_argument("--judge", default="claude", help="Model to use as judge (default: claude)")
     parser.add_argument("--resume", action="store_true", help="Resume testing from partial results")
+    parser.add_argument("--questions", help="Path to YAML question set file for Step 5 (optional)")
 
     args = parser.parse_args()
 
@@ -500,7 +525,7 @@ def main():
         polisher.judge_model = args.judge
     polisher.resume = args.resume
 
-    polisher.polish(models=models, profile=args.profile)
+    polisher.polish(models=models, profile=args.profile, questions_path=args.questions)
 
 
 if __name__ == "__main__":

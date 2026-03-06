@@ -9,7 +9,7 @@ polished versions of documents with clarification markers.
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from ambiguity_detector import Ambiguity, Severity
 
@@ -62,7 +62,7 @@ class ReportingResult:
 
 class ReportingStep:
     """
-    Step 5: Generate report and polished document from ambiguity detection results.
+    Step 6: Generate report and polished document from ambiguity detection results.
 
     This class provides methods to generate markdown reports summarizing detected
     ambiguities and create polished versions of documents with clarification markers.
@@ -83,11 +83,15 @@ class ReportingStep:
             judge_model: Name of judge model used for detection
         """
         self.session_id = session_id
-        self.document_path = str(Path(document_path).absolute())
+        self.document_path = Path(document_path).resolve().name
         self.judge_model = judge_model
 
     def generate_report(
-        self, test_results: Dict[str, Dict], ambiguities: List[Ambiguity], model_names: List[str]
+        self,
+        test_results: Dict[str, Dict],
+        ambiguities: List[Ambiguity],
+        model_names: List[str],
+        question_result: Optional[Any] = None,
     ) -> str:
         """
         Generate markdown report from ambiguity detection results.
@@ -96,6 +100,7 @@ class ReportingStep:
             test_results: Dict mapping section_id to {section, results}
             ambiguities: List of detected Ambiguity objects
             model_names: List of model names used in testing
+            question_result: Optional QuestioningResult for comprehension testing
 
         Returns:
             Formatted markdown report as string
@@ -139,14 +144,16 @@ class ReportingStep:
                 }.get(amb.severity, "⚪")
 
                 report += f"### {i}. {amb.section_header} {severity_emoji} ({amb.severity.value})\n\n"
-                report += f"**Original Text:**\n```\n{amb.section_content[:500]}\n```\n\n"
+
+                quoted_lines = "\n".join(f"> {line}" for line in amb.section_content.splitlines())
+                report += f"**Original Text:**\n{quoted_lines}\n\n"
 
                 report += "**Interpretations:**\n"
                 for model_name, interp in amb.interpretations.items():
                     report += f"\n**{model_name}:**\n"
-                    report += f"- Understanding: {interp.interpretation[:300]}\n"
+                    report += f"- Understanding: {interp.interpretation}\n"
                     if interp.steps:
-                        report += f"- Steps: {', '.join(interp.steps[:5])}\n"
+                        report += f"- Steps: {', '.join(interp.steps)}\n"
                     if interp.assumptions:
                         report += f"- Assumptions: {', '.join(interp.assumptions)}\n"
                     if interp.ambiguities:
@@ -173,11 +180,112 @@ class ReportingStep:
 
                 report += "\n---\n\n"
 
+        if question_result is not None:
+            report += self._generate_comprehension_section(question_result)
+
         # Note about detailed results
         report += "\n---\n\n"
         report += "*For detailed test results, see `test_results.json` in this workspace directory.*\n"
 
         return report
+
+    def _generate_comprehension_section(self, question_result: Any) -> str:
+        """Generate optional comprehension testing section from Step 5 results."""
+        questions = question_result.question_set.questions
+        models = question_result.model_names
+
+        section = "\n---\n\n"
+        section += "## Comprehension Testing\n\n"
+        section += f"- **Questions tested:** {len(questions)}\n"
+        section += f"- **Models:** {', '.join(models)}\n"
+        section += f"- **Judge:** {question_result.judge_model}\n\n"
+
+        # Verdict table with category
+        header = "| Question | Category | " + " | ".join(models) + " |\n"
+        separator = "|----------|----------|" + "|".join(["---------"] * len(models)) + "|\n"
+        section += header
+        section += separator
+
+        for question in questions:
+            model_evaluations = question_result.evaluations.get(question.id, {})
+            verdict_cells = []
+            for model in models:
+                ev = model_evaluations.get(model)
+                if ev:
+                    emoji = {"correct": "✅", "partial": "🟡", "incorrect": "❌", "evasive": "⚪"}.get(ev.verdict, "")
+                    verdict_cells.append(f"{emoji} {ev.verdict}")
+                else:
+                    verdict_cells.append("n/a")
+            section += f"| {question.id} | {question.category} | " + " | ".join(verdict_cells) + " |\n"
+
+        total_questions = len(questions)
+        score_ratio = question_result.document_score
+        score_pct = score_ratio * 100
+        section += f"\n**Score: {score_pct:.0f}%** ({total_questions} questions)\n"
+
+        # Consensus summary
+        if question_result.consensus:
+            all_correct = sum(1 for v in question_result.consensus.values() if v == "all correct")
+            mixed = sum(1 for v in question_result.consensus.values() if v == "mixed")
+            all_incorrect = sum(1 for v in question_result.consensus.values() if v not in {"all correct", "mixed"})
+            if all_correct == total_questions:
+                section += "\nAll models answered all questions correctly"
+                section += " — document is clear on tested topics.\n"
+            else:
+                section += f"\nConsensus: {all_correct} all-correct, {mixed} mixed, {all_incorrect} all-incorrect\n"
+
+        # Per-question detail
+        section += "\n### Question Details\n"
+
+        for question in questions:
+            model_evaluations = question_result.evaluations.get(question.id, {})
+            section += f"\n#### {question.id} ({question.category}, {question.difficulty})\n\n"
+            section += f"**Question:**\n> {question.question.strip()}\n\n"
+
+            # Expected key points and anti-points
+            section += "**Expected key points:**\n"
+            for kp in question.expected.key_points:
+                section += f"- {kp}\n"
+            if question.expected.anti_points:
+                section += "\n**Anti-points (must NOT appear):**\n"
+                for ap in question.expected.anti_points:
+                    section += f"- {ap}\n"
+
+            # Per-model evaluation
+            for model in models:
+                ev = model_evaluations.get(model)
+                if not ev:
+                    continue
+                emoji = {"correct": "✅", "partial": "🟡", "incorrect": "❌", "evasive": "⚪"}.get(ev.verdict, "")
+                section += f"\n**{model}:** {emoji} {ev.verdict}"
+                section += f" ({ev.matched_key_points}/{ev.total_key_points} key points)\n"
+
+                # Model's actual answer (first 300 chars)
+                if ev.answer_text:
+                    answer_preview = ev.answer_text.strip().replace("\n", " ")
+                    if len(answer_preview) > 300:
+                        answer_preview = answer_preview[:300] + "..."
+                    section += f"- Answer: {answer_preview}\n"
+
+                # Key point coverage
+                for kp, matched in ev.key_point_coverage.items():
+                    mark = "✓" if matched else "✗"
+                    section += f"- {mark} {kp}\n"
+
+                # Anti-point violations
+                if ev.anti_points_present:
+                    section += f"- ⚠️ Anti-points triggered: {', '.join(ev.anti_points_present)}\n"
+
+                # Judge reasoning
+                if ev.reasoning:
+                    section += f"- Reasoning: {ev.reasoning}\n"
+
+            # Consensus for this question
+            consensus = question_result.consensus.get(question.id, "")
+            if consensus:
+                section += f"\n**Consensus:** {consensus}\n"
+
+        return section
 
     def generate_polished_document(self, document_content: str, ambiguities: List[Ambiguity]) -> str:
         """

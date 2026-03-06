@@ -1,7 +1,7 @@
 # Documentation Polishing System
 
 **Version:** 0.3.0
-**Status:** Increment 2 Complete (Ambiguity Detection Working)
+**Status:** Core pipeline working. Questioning approach pivoting to whole-document.
 
 ## Overview
 
@@ -24,315 +24,210 @@ Automated tool that detects ambiguities in documentation by testing it with mult
 - Critical production applications
 - Multi-team documentation
 - Public-facing API references
-- Real-time documentation updates
 
-## Architecture
+## How It Works
 
-### Document Lifecycle
+The core pipeline sends each document section to multiple LLMs, collects their interpretations, and uses LLM-as-Judge to find disagreements:
 
 ```
-SOURCE: workflow.bulky.md
-├─ Metadata (version, dates, polishing history)
-├─ Assertions (testable claims for question generation)
-└─ Content (mixed with test markers)
-
-         │
-         ├──[strip]───────► workflow.md (clean)
-         │                  └─► polish.py (ambiguity detection)
-         │                      └─► polished output
-         │
-         └──[extract]─────► assertions.json
-                            └─► generate_questions.py
-                                └─► comprehension testing
-
-FUTURE: polished + bulky ─[merge]─► updated bulky doc
+Step 1: Extract sections    - Parse markdown into testable instructional sections
+Step 2: Init sessions       - (Optional) Create model sessions with full document context
+Step 3: Test sections       - Query all models for interpretation of each section
+Step 4: Detect ambiguities  - LLM-as-Judge compares interpretations, finds disagreements
+Step 5: Generate report     - Markdown report + polished document with clarification markers
 ```
 
-**Key Concepts:**
-- **Bulky docs**: Source of truth with metadata and test markers
-- **Clean docs**: Stripped for LLM consumption (what models actually see)
-- **Transform pipeline**: Deterministic strip/merge operations
-- **Polishing**: Tests clean docs for comprehension issues
-- **Question testing**: Validates understanding using assertions from bulky docs
+### Ambiguity Detection
 
-## ✅ Current Status - Increment 2 Complete
+Three signals trigger ambiguity flags:
+1. **Model disagreement** — Models interpret the same section differently (severity based on similarity)
+2. **Assumption-making** — Models agree but required assumptions to do so
+3. **Shared concerns** — Models agree but both independently note the same ambiguity
 
-### What Works:
-- ✅ Extract testable sections from markdown documents
-- ✅ Test sections with multiple CLI-based AI models
-- ✅ **LLM-as-Judge strategy** - Claude compares model interpretations
-- ✅ **Session management** - Full document context maintained across queries
-- ✅ Detect ambiguities with severity levels (high/medium/low)
-- ✅ Generate detailed reports showing disagreements and assumptions
-- ✅ Create polished documents with clarification markers
-- ✅ Support for multiple models (claude, gemini, codex)
-- ✅ Configurable via YAML with profiles (quick/standard/thorough)
-
-### Working Commands:
-```bash
-# Show version
-cd scripts && python polish.py --version
-
-# List available models
-cd scripts && python polish.py --list-models
-
-# Polish a document (uses default models from config)
-cd scripts && python polish.py ../docs/test/test_context_terms_definitions.md
-
-# Use specific models
-cd scripts && python polish.py ../docs/test/test_context_terms_definitions.md --models claude,gemini
-
-# Use a profile
-cd scripts && python polish.py document.md --profile standard
-```
+Two comparison strategies:
+- **LLM-as-Judge** (default) — Claude evaluates all interpretations together
+- **Simple comparison** — Keyword/Jaccard similarity (no API calls)
 
 ## Installation
 
-### Requirements:
-- Python 3.8+
+### Requirements
+- Python 3.11+
 - PyYAML
+- CLI access to `claude`, `gemini`, and/or `codex`
 
-### Setup:
+### Setup
 ```bash
-# Install dependencies
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-
-# Verify installation
-cd scripts && python polish.py --version
 ```
+
+## Usage
+
+### Full pipeline (recommended)
+```bash
+python scripts/polish.py path/to/document.md
+python scripts/polish.py path/to/document.md --models claude,gemini
+python scripts/polish.py path/to/document.md --profile standard
+python scripts/polish.py path/to/document.md --judge claude
+python scripts/polish.py path/to/document.md --resume  # resume from crash
+```
+
+### Individual steps
+```bash
+python scripts/extract_sections.py document.md -o workspace/sections.json
+python scripts/init_sessions.py workspace/sections.json document.md
+python scripts/test_sections.py workspace/sections.json -o workspace/
+python scripts/detect_ambiguities.py workspace/test_results.json
+python scripts/generate_report.py workspace/test_results.json workspace/ambiguities.json
+```
+
+### Output
+Files created in `scripts/workspace/polish_TIMESTAMP/`:
+- `report.md` — Detailed analysis report
+- `*_polished.md` — Document with clarification markers
+- `test_results.json` — Raw model interpretations
+- `ambiguities.json` — Detected ambiguities
+- `judge_responses.log` — LLM judge decision log
 
 ## Configuration
 
-Edit `config.yaml` to configure models:
+`scripts/config.yaml`:
 
 ```yaml
 models:
   claude:
     type: cli
-    command: claude        # Path to CLI command
-    args: []              # Additional arguments
-    timeout: 30           # Timeout in seconds
+    command: claude
+    timeout: 30
     enabled: true
-
   gemini:
     type: cli
     command: gemini
     timeout: 30
     enabled: true
+  codex:
+    type: cli
+    command: codex
+    timeout: 30
+    enabled: true
+
+profiles:
+  quick:    [claude, gemini]       # 2 models, 1 iteration
+  standard: [claude, gemini, codex] # 3 models, 1 iteration
+  thorough: [claude, gemini, codex] # 3 models, 2 iterations
+
+session_management:
+  enabled: true
+  mode: auto-recreate  # or fail-fast
 ```
-
-## Usage Examples
-
-### Basic Usage:
-```bash
-cd scripts && python polish.py ../docs/test/test_context_terms_definitions.md
-```
-
-Output files created in `workspace/polish_TIMESTAMP/`:
-- `report.md` - Detailed analysis report
-- `test_context_terms_definitions_polished.md` - Document with clarification notes
-- `test_results.json` - Raw test results (JSON)
-
-### Example Report Output:
-
-```
-# Documentation Polish Report
-
-**Session ID:** polish_20251122_075228
-**Document:** docs/test/test_context_terms_definitions.md
-**Date:** 2025-11-22 07:52:28
-
-## Summary
-- **Sections Tested:** 3
-- **Ambiguities Found:** 3
-- **Models Used:** claude, gemini
-
-## Ambiguities Detected
-
-### 1. Step 2: Generate Output (high severity)
-
-**Original Text:**
-Create N cards per word with the required information.
-
-**Different Interpretations:**
-- **claude:** Create N separate JSON entries per word, where N depends on word type
-- **gemini:** Create a single JSON entry per word, with N being a parameter in the entry
-
-**Assumptions Made:**
-- **claude:** N varies by word type, JSON format is required, Each entry = one card
-- **gemini:** N is a field/parameter, not the number of entries, Expansion happens in later step
-```
-
-## How It Works
-
-1. **Extract Sections**: Scans markdown document for sections containing instructions
-2. **Generate Prompts**: Creates specific prompts to test each section
-3. **Query Models**: Sends prompts to multiple AI models via CLI
-4. **Compare Responses**: Analyzes responses to find differences in interpretation
-5. **Detect Ambiguities**: Identifies where models disagree or make assumptions
-6. **Generate Report**: Creates detailed report with findings
-7. **Create Polished Version**: Adds clarification markers to ambiguous sections
 
 ## Project Structure
 
 ```
-polish_system/
-├── polish.py                    # Main entry point
-├── config.yaml                  # Configuration
-├── requirements.txt             # Dependencies
-├── src/
-│   ├── __init__.py
-│   ├── model_interface.py       # Model communication layer
-│   ├── document_processor.py    # Document parsing
-│   └── prompt_generator.py      # Prompt templates
-├── docs/test/                   # Test documents
-│   ├── test_context_terms_definitions.md
-│   └── test_context_abbreviations_acronyms.md
-├── workspace/                   # Session workspaces (generated)
-│   └── polish_TIMESTAMP/
-│       ├── report.md
-│       ├── test_results.json
-│       └── *_polished.md
-└── output/                      # Final outputs (generated)
+document_polishing/
+├── scripts/
+│   ├── polish.py                 # Main orchestrator (Steps 1-5)
+│   ├── extract_sections.py       # Standalone section extraction
+│   ├── init_sessions.py          # Standalone session init
+│   ├── test_sections.py          # Standalone section testing
+│   ├── detect_ambiguities.py     # Standalone ambiguity detection
+│   ├── generate_report.py        # Standalone report generation
+│   ├── generate_questions.py     # Question generation CLI (not integrated)
+│   ├── test_questions.py         # Question testing CLI (not integrated)
+│   ├── strip_metadata.py         # Bulky -> clean doc transform
+│   ├── config.yaml               # Model and pipeline configuration
+│   ├── templates/                # Question templates (abandoned - see below)
+│   ├── src/
+│   │   ├── extraction_step.py    # Step 1: Section extraction
+│   │   ├── session_init_step.py  # Step 2: Session initialization
+│   │   ├── testing_step.py       # Step 3: Multi-model testing
+│   │   ├── detection_step.py     # Step 4: Ambiguity detection
+│   │   ├── reporting_step.py     # Step 5: Report generation
+│   │   ├── model_interface.py    # CLI model abstraction layer
+│   │   ├── session_manager.py    # Session lifecycle management
+│   │   ├── session_handlers.py   # Per-model session handlers
+│   │   ├── document_processor.py # Markdown parsing
+│   │   ├── ambiguity_detector.py # Comparison strategies
+│   │   ├── prompt_generator.py   # Interpretation prompts
+│   │   └── questioning_step.py   # Question framework (not integrated)
+│   └── workspace/                # Session outputs (generated)
+├── docs/
+│   ├── bulky/                    # Source docs with @meta/@assertion markers
+│   ├── clean/                    # Stripped docs for LLM consumption
+│   ├── test/                     # Test fixtures and procedures
+│   ├── question_testing/         # Framework design and plans
+│   └── archive/                  # Historical design docs
+├── tests/                        # 132 passing tests
+├── temp/                         # Work artifacts from experiments
+├── AGENTS.md                     # Authoritative project reference
+└── TODO.md                       # Active task tracking
 ```
 
-## Testing with Mock Models
+## Questioning Approaches — What Was Tried
 
-For development/testing without real AI models, mock CLI tools are provided:
-- `mock_claude` - Simulates Claude responses
-- `mock_gemini` - Simulates Gemini responses (with different interpretations)
+The core pipeline detects HOW models interpret text differently. A complementary question-based approach would test WHETHER models can correctly USE their understanding. Three approaches were tried:
 
-These are already configured in `config.yaml` for testing.
+### 1. Template-Based Questions (Abandoned)
 
-## Detected Ambiguity Types
+Regex-based element extraction + template patterns to auto-generate questions from section content. Infrastructure built (2,000 LOC, 47 tests), but templates had a fundamental design flaw: the extracted answer was the same text substituted into the question, causing 100% answer leakage. The validator correctly rejected every generated question. The template approach itself was the wrong abstraction — too rigid, too fragile.
 
-The system currently detects:
+**Status:** Code remains in `questioning_step.py`. Templates in `scripts/templates/` are dead.
 
-1. **Different Interpretations** (High Severity)
-   - Models understand instructions completely differently
-   - Example: "Create N cards" → some think N entries, others think N is a parameter
+### 2. Manual Per-Section Questions (Shelved)
 
-2. **Assumption-Based** (Medium/Low Severity)
-   - Models agree but required assumptions
-   - Example: "standard validation" → assumes what "standard" means
+Hand-crafted scenario questions tested against `git_workflow.md` in 3 conditions (cold, old doc, new doc) x 2 models (Gemini, Codex). Results: cold 13%, old doc 13%, new doc 88% accuracy. **This proved the concept works** — focused questions catch real comprehension failures.
 
-3. **Pattern-Based** (In Progress)
-   - Vague quantifiers (N, several, some, many)
-   - Implicit references (the process, this output)
-   - Undefined terms (standard, required, appropriate)
+However, writing and maintaining per-section questions for every document block is too cumbersome to track and align. The overhead doesn't scale.
+
+**Status:** Experiment artifacts in `temp/`. Approach shelved.
+
+### 3. Whole-Document Questions (Next)
+
+Ask targeted questions about the entire document rather than section-by-section. Easier to store in one place, easier to track, easier to extract. The session infrastructure already supports this — models get full document context via `session_management`.
+
+**Status:** Not started. This is the next direction.
+
+## Bulky-Clean Architecture
+
+Source/build system for documentation:
+- **Bulky docs** (`docs/bulky/`): Source of truth with `@meta` blocks and `@assertion` markers
+- **Clean docs** (`docs/clean/`): Stripped versions for LLM consumption
+- **Transform:** `strip_metadata.py` — deterministic line-by-line state machine
+
+Week 1 exercises completed: format spec, strip script, manual question validation, authoring guide (`docs/bulky/BULKY_FORMAT_GUIDE.md`). Not yet integrated into `polish.py`.
+
+## Testing
+
+```bash
+source .venv/bin/activate
+pytest tests/ -v            # 132 tests, ~0.4s
+ruff check .                # Linting
+ruff format --check .       # Format verification
+pyright scripts/src/        # Type checking (0 errors, warnings only)
+```
 
 ## Known Limitations
 
-**Current (Increment 2):**
-- ❌ Fix generation is basic (just adds clarification notes)
-- ❌ No iterative polishing yet
-- ❌ No validation of polished documents
-- ❌ CLI models only (no API support yet)
-- ⚠️ Cannot control model context window limits (may lose initial document)
-- ⚠️ Some models don't follow prompt format consistently
+- Fix generation is basic (adds clarification markers, no smart rewrites)
+- No iterative polishing (run once, review, manually improve)
+- CLI models only (no direct API support)
+- Cannot control model context window limits
+- Some models don't follow JSON prompt format consistently
 
-**Addressed in Increment 2:**
-- ✅ LLM-as-Judge replaces simple text comparison
-- ✅ Session management provides full document context
-- ✅ Model-reported ambiguities included in analysis
+## Next Steps
 
-These will be addressed in Increments 3-4.
-
-## Next Steps (Roadmap)
-
-### Increment 2: Ambiguity Detection ✅ COMPLETE
-- ✅ LLM-as-Judge comparison (not just text matching)
-- ✅ Ambiguity severity classification
-- ✅ Session management for document context
-
-### Current: Bulky-Clean Architecture (In Progress)
-**Goal:** Implement source/build system for documentation with test markers
-
-**Phase 1:** Foundation (Week 1)
-- [ ] Bulky document format specification
-- [ ] Strip metadata script (bulky → clean)
-- [ ] Test round-trip conversion
-- [ ] Convert 1 example document
-
-**Phase 2:** Question Testing (Week 2-3)
-- [ ] Fix question templates (expert review recommendations)
-- [ ] Reduce answer leakage to 0%
-- [ ] Template success rate > 80%
-- [ ] Test on bulky documents
-
-**Phase 3:** Integration (Week 4)
-- [ ] Integrate questioning into polish.py as optional step
-- [ ] End-to-end workflow: bulky → strip → polish → questions
-- [ ] Update configuration for question testing
-
-**See:** `docs/question_testing/plans/BULKY_CLEAN_ARCHITECTURE_PLAN.md`
-
-### Future: Fix Generation & Merge
-- [ ] Smart fix strategies
-- [ ] Merge polishing results back to bulky docs
-- [ ] Iterative polishing workflow
-- [ ] Auto-fix where possible
-
-## Troubleshooting
-
-### "Command not found" errors:
-```bash
-# Check model configuration in config.yaml
-cd scripts && python polish.py --list-models
-
-# Verify CLI command exists
-which claude
-which gemini
-```
-
-### No ambiguities detected:
-- Document may already be clear
-- Try using more models: `--models claude,gemini,codex`
-- Check if sections were extracted: look for "Found X sections" in output
-
-### Permission errors:
-```bash
-# Make sure mock CLIs are executable
-chmod +x mock_*
-```
-
-## Example Test Document
-
-```markdown
-# Test Workflow
-
-## Step 1: Process Data
-Process all items in the batch.
-
-## Step 2: Generate Output
-Create N cards per word with the required information.
-
-## Step 3: Validate Results
-Check the output using the standard validation process.
-```
-
-Run: `cd scripts && python polish.py ../docs/test/test_context_terms_definitions.md`
-
-Expected: Detects 3 ambiguities (sequential vs parallel, N entries vs N parameter, standard validation undefined)
-
-## Contributing
-
-This is an active development project. Current focus: Increment 1 → Increment 2.
-
-## License
-
-MIT (to be added)
+1. **Whole-document questioning** — Design question format, implement collection/evaluation
+2. **Integration** — Wire questioning into `polish.py` as optional Step 6
+3. **Fix generation** — Smart fix strategies beyond clarification markers
+4. **Packaging** — Proper `pyproject.toml` build, `.env.example`
 
 ## Version History
 
-- **0.2.0** (2025-12-21) - Increment 2 Complete
-  - LLM-as-Judge strategy implemented
-  - Session management with full document context
-  - Severity-based ambiguity classification
-  - Enhanced report generation
+- **0.3.0** (2026-02-25) — Modular architecture, fail-fast judge, intermediate saves, resume support, bulky-clean Week 1
+- **0.2.0** (2025-12-21) — LLM-as-Judge, session management, shared ambiguity detection
+- **0.1.0** (2025-11-22) — Core system, CLI model support, basic ambiguity detection
 
-- **0.1.0** (2025-11-22) - Increment 1 Complete
-  - Core system working
-  - CLI model support
-  - Basic ambiguity detection
-  - Report generation
+## License
+
+MIT

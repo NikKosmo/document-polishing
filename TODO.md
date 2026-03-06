@@ -14,6 +14,9 @@
 
 ### Pipeline Architecture
 
+### Whole-Document Questioning
+- [P1] [✓] Implement whole-document questioning pipeline (Step 5) - YAML question sets with expected key points/anti-points, multi-model answer collection, LLM judge evaluation with verdict/coverage/reasoning, integrated into polish.py via `--questions` flag and standalone `test_questions.py` CLI. Report includes verdict table, per-question details with model answers (300 char preview), key point coverage (✓/✗), anti-point violations, judge reasoning, document score, consensus summary. Fixed PAI context leak in Claude CLI (`--setting-sources local`), fixed YAML `document` field to be metadata-only (not file path), added `--question-results` to `generate_report.py` for modular report regeneration. 109 tests passing. - PR #TBD `2026-03-06` #feature #questioning #whole-document
+
 ### Other Active Tasks
 - [P2] [ ] Test remaining context dependency documents (abbreviations, prerequisites, constraints, comprehensive) `2025-12-12` #testing #session-management
 
