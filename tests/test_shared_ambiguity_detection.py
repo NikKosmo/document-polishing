@@ -183,7 +183,7 @@ class TestSharedAmbiguityDetection:
                 "similarity": 0.85,
                 "details": "Models agree",
                 "groups": [["claude", "gemini", "codex"]],
-                "key_differences": [],
+                "key_differences": ["models differ on retry behavior details"],
                 "shared_ambiguities": True,
                 "shared_concerns": ["timeout value unclear"],
             }
@@ -261,6 +261,148 @@ class TestSharedAmbiguityDetection:
 
         assert len(ambiguities) == 1
         assert ambiguities[0].severity == Severity.LOW
+
+    def test_severity_low_for_three_models_theoretical_concern(self, monkeypatch):
+        """Verify LOW severity for high-agreement shared concern with no key differences."""
+
+        def mock_compare(interpretations):
+            return {
+                "agree": True,
+                "similarity": 0.95,
+                "details": "Models agree strongly",
+                "groups": [["claude", "gemini", "codex"]],
+                "key_differences": [],
+                "shared_ambiguities": True,
+                "shared_concerns": ["timeout value unclear"],
+            }
+
+        monkeypatch.setattr(self.detector.strategy, "compare", mock_compare)
+
+        test_results = {
+            "section_1": {
+                "section": {"header": "Configuration", "content": "Set timeout appropriately."},
+                "results": {
+                    "claude": {
+                        "interpretation": "Configure timeout",
+                        "steps": [],
+                        "assumptions": [],
+                        "ambiguities": ["timeout value not specified"],
+                    },
+                    "gemini": {
+                        "interpretation": "Set timeout setting",
+                        "steps": [],
+                        "assumptions": [],
+                        "ambiguities": ["what is appropriate timeout?"],
+                    },
+                    "codex": {
+                        "interpretation": "Set timeout",
+                        "steps": [],
+                        "assumptions": [],
+                        "ambiguities": ["timeout value unclear"],
+                    },
+                },
+            }
+        }
+
+        ambiguities = self.detector.detect(test_results)
+
+        assert len(ambiguities) == 1
+        assert ambiguities[0].severity == Severity.LOW
+
+    def test_severity_low_at_high_agreement_threshold_boundary(self, monkeypatch):
+        """Verify threshold boundary is inclusive for theoretical concern classification."""
+        self.detector = AmbiguityDetector(strategy="simple", high_agreement_threshold=0.85)
+
+        def mock_compare(interpretations):
+            return {
+                "agree": True,
+                "similarity": 0.85,
+                "details": "Models agree",
+                "groups": [["claude", "gemini", "codex"]],
+                "key_differences": [],
+                "shared_ambiguities": True,
+                "shared_concerns": ["timeout value unclear"],
+            }
+
+        monkeypatch.setattr(self.detector.strategy, "compare", mock_compare)
+
+        test_results = {
+            "section_1": {
+                "section": {"header": "Configuration", "content": "Set timeout appropriately."},
+                "results": {
+                    "claude": {
+                        "interpretation": "Configure timeout",
+                        "steps": [],
+                        "assumptions": [],
+                        "ambiguities": ["timeout value not specified"],
+                    },
+                    "gemini": {
+                        "interpretation": "Set timeout setting",
+                        "steps": [],
+                        "assumptions": [],
+                        "ambiguities": ["what is appropriate timeout?"],
+                    },
+                    "codex": {
+                        "interpretation": "Set timeout",
+                        "steps": [],
+                        "assumptions": [],
+                        "ambiguities": ["timeout value unclear"],
+                    },
+                },
+            }
+        }
+
+        ambiguities = self.detector.detect(test_results)
+
+        assert len(ambiguities) == 1
+        assert ambiguities[0].severity == Severity.LOW
+
+    def test_real_disagreement_remains_medium_or_higher_even_with_shared_ambiguities(self, monkeypatch):
+        """Verify disagree path severity remains MEDIUM/HIGH when models actually disagree."""
+
+        def mock_compare(interpretations):
+            return {
+                "agree": False,
+                "similarity": 0.45,
+                "details": "Models disagree on behavior",
+                "groups": [["claude"], ["gemini", "codex"]],
+                "key_differences": ["timeout behavior interpretation differs"],
+                "shared_ambiguities": True,
+                "shared_concerns": ["timeout value unclear"],
+            }
+
+        monkeypatch.setattr(self.detector.strategy, "compare", mock_compare)
+
+        test_results = {
+            "section_1": {
+                "section": {"header": "Configuration", "content": "Set timeout appropriately."},
+                "results": {
+                    "claude": {
+                        "interpretation": "Use 30s timeout",
+                        "steps": [],
+                        "assumptions": [],
+                        "ambiguities": ["timeout value not specified"],
+                    },
+                    "gemini": {
+                        "interpretation": "Use adaptive timeout",
+                        "steps": [],
+                        "assumptions": [],
+                        "ambiguities": ["what is appropriate timeout?"],
+                    },
+                    "codex": {
+                        "interpretation": "Use fixed timeout only",
+                        "steps": [],
+                        "assumptions": [],
+                        "ambiguities": ["timeout value unclear"],
+                    },
+                },
+            }
+        }
+
+        ambiguities = self.detector.detect(test_results)
+
+        assert len(ambiguities) == 1
+        assert ambiguities[0].severity in {Severity.MEDIUM, Severity.HIGH}
 
     def test_no_flag_without_shared_ambiguities(self, monkeypatch):
         """Verify no ambiguity flagged when shared_ambiguities is False"""

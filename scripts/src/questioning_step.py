@@ -8,6 +8,7 @@ This module implements Step 5 of the document polishing pipeline:
 - Score comprehension and map issues to ambiguity-compatible objects
 """
 
+import hashlib
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -29,7 +30,16 @@ class QuestionExpected:
 
     key_points: List[str]
     anti_points: List[str] = field(default_factory=list)
+    key_point_ids: List[str] = field(default_factory=list)
+    anti_point_ids: List[str] = field(default_factory=list)
     notes: Optional[str] = None
+
+    def __post_init__(self):
+        """Ensure deterministic IDs exist for all points."""
+        if not self.key_point_ids:
+            self.key_point_ids = [_generate_point_id(point, "kp") for point in self.key_points]
+        if not self.anti_point_ids:
+            self.anti_point_ids = [_generate_point_id(point, "ap") for point in self.anti_points]
 
 
 @dataclass
@@ -69,8 +79,9 @@ class QuestionEvaluation:
     matched_key_points: int
     total_key_points: int
     anti_points_present: List[str] = field(default_factory=list)
-    key_point_coverage: Dict[str, bool] = field(default_factory=dict)
+    key_point_coverage: Dict[str, Optional[bool]] = field(default_factory=dict)
     anti_point_presence: Dict[str, bool] = field(default_factory=dict)
+    is_degraded: bool = False
     is_evasive: bool = False
     reasoning: str = ""
 
@@ -126,6 +137,8 @@ class QuestioningResult:
                         "expected": {
                             "key_points": q.expected.key_points,
                             "anti_points": q.expected.anti_points,
+                            "key_point_ids": q.expected.key_point_ids,
+                            "anti_point_ids": q.expected.anti_point_ids,
                             "notes": q.expected.notes,
                         },
                     }
@@ -150,6 +163,7 @@ class QuestioningResult:
                         "anti_points_present": ev.anti_points_present,
                         "key_point_coverage": ev.key_point_coverage,
                         "anti_point_presence": ev.anti_point_presence,
+                        "is_degraded": ev.is_degraded,
                         "is_evasive": ev.is_evasive,
                         "reasoning": ev.reasoning,
                         "score": ev.score(),
@@ -197,6 +211,7 @@ class QuestioningResult:
                     anti_points_present=ev.get("anti_points_present", []),
                     key_point_coverage=ev.get("key_point_coverage", {}),
                     anti_point_presence=ev.get("anti_point_presence", {}),
+                    is_degraded=ev.get("is_degraded", False),
                     is_evasive=ev.get("is_evasive", False),
                     reasoning=ev.get("reasoning", ""),
                 )
@@ -379,11 +394,28 @@ def load_question_set_from_dict(payload: Dict[str, Any]) -> QuestionSet:
 
         key_points = expected.get("key_points") or []
         anti_points = expected.get("anti_points") or []
+        key_point_ids = expected.get("key_point_ids") or []
+        anti_point_ids = expected.get("anti_point_ids") or []
 
         if not isinstance(key_points, list):
             raise QuestionSetValidationError(f"Field {location}.expected.key_points must be a list")
         if not isinstance(anti_points, list):
             raise QuestionSetValidationError(f"Field {location}.expected.anti_points must be a list")
+        if key_point_ids and (not isinstance(key_point_ids, list) or len(key_point_ids) != len(key_points)):
+            raise QuestionSetValidationError(
+                f"Field {location}.expected.key_point_ids must be a list with the same length as key_points"
+            )
+        if anti_point_ids and (not isinstance(anti_point_ids, list) or len(anti_point_ids) != len(anti_points)):
+            raise QuestionSetValidationError(
+                f"Field {location}.expected.anti_point_ids must be a list with the same length as anti_points"
+            )
+
+        parsed_key_points = _parse_expected_points(key_points, f"{location}.expected.key_points", "kp")
+        parsed_anti_points = _parse_expected_points(anti_points, f"{location}.expected.anti_points", "ap")
+        for i, point_id in enumerate(key_point_ids):
+            parsed_key_points[i]["id"] = str(point_id)
+        for i, point_id in enumerate(anti_point_ids):
+            parsed_anti_points[i]["id"] = str(point_id)
 
         questions.append(
             WholeDocumentQuestion(
@@ -393,8 +425,10 @@ def load_question_set_from_dict(payload: Dict[str, Any]) -> QuestionSet:
                 difficulty=difficulty,
                 assertions=question_data.get("assertions"),
                 expected=QuestionExpected(
-                    key_points=[str(kp) for kp in key_points],
-                    anti_points=[str(ap) for ap in anti_points],
+                    key_points=[point["point"] for point in parsed_key_points],
+                    anti_points=[point["point"] for point in parsed_anti_points],
+                    key_point_ids=[point["id"] for point in parsed_key_points],
+                    anti_point_ids=[point["id"] for point in parsed_anti_points],
                     notes=expected.get("notes"),
                 ),
             )
@@ -509,22 +543,27 @@ class QuestioningStep:
         judge_response = judge_manager.query(self.judge_model, judge_prompt, use_session=False)
         judge_payload = _parse_judge_payload(judge_response)
 
-        key_point_coverage: Dict[str, bool] = {}
+        key_point_coverage: Dict[str, Optional[bool]] = {}
         anti_point_presence: Dict[str, bool] = {}
 
-        for point in question.expected.key_points:
-            key_point_coverage[point] = _lookup_boolean_result(judge_payload, "key_points", point)
+        for point, point_id in zip(question.expected.key_points, question.expected.key_point_ids, strict=True):
+            key_point_coverage[point] = _lookup_boolean_result(judge_payload, "key_points", point_id, "matched")
 
-        for point in question.expected.anti_points:
-            anti_point_presence[point] = _lookup_boolean_result(judge_payload, "anti_points", point)
+        for point, point_id in zip(question.expected.anti_points, question.expected.anti_point_ids, strict=True):
+            anti_result = _lookup_boolean_result(judge_payload, "anti_points", point_id, "present")
+            anti_point_presence[point] = bool(anti_result) if anti_result is not None else False
 
-        matched_key_points = sum(1 for matched in key_point_coverage.values() if matched)
+        matched_key_points = sum(1 for matched in key_point_coverage.values() if matched is True)
+        evaluated_key_points = sum(1 for matched in key_point_coverage.values() if matched is not None)
+        total_defined_key_points = len(question.expected.key_points)
+        not_evaluated_key_points = total_defined_key_points - evaluated_key_points
         anti_points_present = [point for point, present in anti_point_presence.items() if present]
         is_evasive = bool(judge_payload.get("is_evasive", False))
+        is_degraded = total_defined_key_points > 0 and (not_evaluated_key_points > (total_defined_key_points / 2.0))
 
         verdict = assign_verdict(
             matched_key_points=matched_key_points,
-            total_key_points=max(1, len(question.expected.key_points)),
+            total_key_points=evaluated_key_points,
             has_anti_points=bool(anti_points_present),
             is_evasive=is_evasive,
         )
@@ -535,10 +574,11 @@ class QuestioningStep:
             answer_text=answer_text,
             verdict=verdict,
             matched_key_points=matched_key_points,
-            total_key_points=max(1, len(question.expected.key_points)),
+            total_key_points=evaluated_key_points,
             anti_points_present=anti_points_present,
             key_point_coverage=key_point_coverage,
             anti_point_presence=anti_point_presence,
+            is_degraded=is_degraded,
             is_evasive=is_evasive,
             reasoning=str(judge_payload.get("reasoning", "")),
         )
@@ -556,8 +596,20 @@ class QuestioningStep:
 
     def _build_judge_prompt(self, question: WholeDocumentQuestion, answer_text: str) -> str:
         """Build LLM-as-Judge prompt for semantic key_point/anti_point evaluation."""
-        key_points_block = "\n".join(f"- {point}" for point in question.expected.key_points)
-        anti_points_block = "\n".join(f"- {point}" for point in question.expected.anti_points) or "- (none)"
+        key_points_block = (
+            "\n".join(
+                f"- {json.dumps({'id': point_id, 'point': point}, ensure_ascii=False)}"
+                for point, point_id in zip(question.expected.key_points, question.expected.key_point_ids, strict=True)
+            )
+            or "- (none)"
+        )
+        anti_points_block = (
+            "\n".join(
+                f"- {json.dumps({'id': point_id, 'point': point}, ensure_ascii=False)}"
+                for point, point_id in zip(question.expected.anti_points, question.expected.anti_point_ids, strict=True)
+            )
+            or "- (none)"
+        )
 
         return f"""You are evaluating one model answer for documentation comprehension.
 
@@ -575,8 +627,8 @@ Model answer:
 
 Return strict JSON with this schema:
 {{
-  "key_points": [{{"point": "...", "matched": true|false, "reason": "..."}}],
-  "anti_points": [{{"point": "...", "present": true|false, "reason": "..."}}],
+  "key_points": [{{"id": "...", "point": "...", "matched": true|false, "reason": "..."}}],
+  "anti_points": [{{"id": "...", "point": "...", "present": true|false, "reason": "..."}}],
   "is_evasive": true|false,
   "reasoning": "short summary"
 }}
@@ -631,15 +683,38 @@ def _parse_judge_payload(judge_response: Dict[str, Any]) -> Dict[str, Any]:
         return {"key_points": [], "anti_points": [], "is_evasive": False, "reasoning": "Judge parse failure"}
 
 
-def _lookup_boolean_result(payload: Dict[str, Any], key: str, point_text: str) -> bool:
-    """Find boolean point result in judge payload."""
+def _lookup_boolean_result(payload: Dict[str, Any], key: str, point_id: str, result_field: str) -> Optional[bool]:
+    """Find boolean point result in judge payload by stable identifier."""
     entries = payload.get(key, [])
     for entry in entries:
-        if str(entry.get("point", "")).strip() == point_text.strip():
-            if key == "key_points":
-                return bool(entry.get("matched", False))
-            return bool(entry.get("present", False))
-    return False
+        if str(entry.get("id", "")).strip() == point_id.strip():
+            return bool(entry.get(result_field, False))
+    return None
+
+
+def _generate_point_id(point_text: str, prefix: str) -> str:
+    """Generate deterministic ID from point text."""
+    normalized = " ".join(str(point_text).split()).strip().lower()
+    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:12]
+    return f"{prefix}_{digest}"
+
+
+def _parse_expected_points(raw_points: List[Any], location: str, prefix: str) -> List[Dict[str, str]]:
+    """Parse expected key/anti points while attaching stable IDs."""
+    parsed_points: List[Dict[str, str]] = []
+    for idx, raw_point in enumerate(raw_points):
+        point_location = f"{location}[{idx}]"
+        if isinstance(raw_point, dict):
+            point_text = raw_point.get("point", raw_point.get("text"))
+            if point_text is None:
+                raise QuestionSetValidationError(f"Field {point_location} must include 'point' or 'text'")
+            point_id = raw_point.get("id") or _generate_point_id(str(point_text), prefix)
+        else:
+            point_text = str(raw_point)
+            point_id = _generate_point_id(point_text, prefix)
+
+        parsed_points.append({"id": str(point_id), "point": str(point_text)})
+    return parsed_points
 
 
 def _determine_issue_type(question: WholeDocumentQuestion, evaluation: QuestionEvaluation) -> str:
@@ -657,7 +732,7 @@ def _determine_issue_type(question: WholeDocumentQuestion, evaluation: QuestionE
 
 def _build_issue_description(question: WholeDocumentQuestion, evaluation: QuestionEvaluation, issue_type: str) -> str:
     """Build issue description for report consumption."""
-    missing = [point for point, matched in evaluation.key_point_coverage.items() if not matched]
+    missing = [point for point, matched in evaluation.key_point_coverage.items() if matched is False]
     anti = evaluation.anti_points_present
 
     details = [f"Issue type: {issue_type}."]

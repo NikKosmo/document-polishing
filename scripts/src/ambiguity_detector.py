@@ -467,15 +467,21 @@ class AmbiguityDetector:
     """
 
     def __init__(
-        self, strategy: str = "simple", similarity_threshold: float = 0.7, llm_query_func: Optional[Callable] = None
+        self,
+        strategy: str = "simple",
+        similarity_threshold: float = 0.7,
+        high_agreement_threshold: float = 0.85,
+        llm_query_func: Optional[Callable] = None,
     ):
         """
         Args:
         strategy: 'simple' or 'llm_judge'
         similarity_threshold: Threshold for simple strategy (0-1)
+        high_agreement_threshold: Threshold for high agreement shared concerns (0-1)
         llm_query_func: Required if strategy='llm_judge'
         """
         self.strategy_name = strategy
+        self.high_agreement_threshold = high_agreement_threshold
 
         if strategy == "simple":
             self.strategy = SimpleComparisonStrategy(similarity_threshold)
@@ -575,10 +581,7 @@ class AmbiguityDetector:
             # Also flag sections where models noted similar ambiguities
             elif comparison.get("shared_ambiguities"):
                 shared_concerns = comparison.get("shared_concerns", [])
-                # TODO: Consider whether severity should be based on len(interpretations)
-                # (total models participating) or number of models that actually noted
-                # ambiguities. Current approach uses total participating models.
-                severity = Severity.MEDIUM if len(interpretations) >= 3 else Severity.LOW
+                severity = self._determine_shared_ambiguity_severity(comparison)
 
                 ambiguities.append(
                     Ambiguity(
@@ -600,6 +603,24 @@ class AmbiguityDetector:
         ambiguities.sort(key=lambda a: severity_order[a.severity])
 
         return ambiguities
+
+    def _determine_shared_ambiguity_severity(self, comparison: Dict[str, Any]) -> Severity:
+        """Determine severity for shared ambiguity cases where models report similar concerns."""
+        similarity = comparison.get("similarity", 0.0)
+        key_differences = comparison.get("key_differences", [])
+        agree = comparison.get("agree", False)
+
+        if key_differences is None:
+            key_differences = []
+
+        is_theoretical_concern = (
+            agree is True and len(key_differences) == 0 and similarity >= self.high_agreement_threshold
+        )
+
+        if is_theoretical_concern:
+            return Severity.LOW
+
+        return Severity.MEDIUM
 
     def _determine_severity(self, comparison: Dict[str, Any]) -> Severity:
         """Determine ambiguity severity based on comparison results"""
