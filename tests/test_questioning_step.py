@@ -13,13 +13,16 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "scripts" / "src"))
 
 import polish  # noqa: E402
+import questioning_step as questioning_module  # noqa: E402
 import test_questions  # noqa: E402
 from questioning_step import (  # noqa: E402
+    QuestioningStep,
     QuestionSetValidationError,
     assign_verdict,
     calculate_document_score,
     calculate_question_score,
     load_question_set,
+    load_question_set_from_dict,
     map_issue_to_severity,
 )
 
@@ -65,6 +68,26 @@ class TestYamlLoading:
         assert len(question_set.questions) == 1
         assert question_set.questions[0].id == "q1"
         assert question_set.questions[0].expected.key_points == ["Only user can merge"]
+        assert len(question_set.questions[0].expected.key_point_ids) == 1
+
+    def test_key_point_ids_are_deterministic_without_yaml_ids(self):
+        payload = {
+            "version": "1.0",
+            "document": "doc.md",
+            "questions": [
+                {
+                    "id": "q1",
+                    "question": "What should happen?",
+                    "expected": {"key_points": ["Alpha", "Beta"], "anti_points": ["Gamma"]},
+                }
+            ],
+        }
+
+        first = load_question_set_from_dict(payload)
+        second = load_question_set_from_dict(payload)
+
+        assert first.questions[0].expected.key_point_ids == second.questions[0].expected.key_point_ids
+        assert first.questions[0].expected.anti_point_ids == second.questions[0].expected.anti_point_ids
 
     @pytest.mark.parametrize("missing_field", ["version", "document", "questions"])
     def test_missing_required_top_level_field_raises(self, tmp_path, missing_field):
@@ -328,3 +351,123 @@ class TestPolishIntegration:
 
         captured = capsys.readouterr()
         assert "Step 5: Question testing -- skipped" in captured.out
+
+
+class TestJudgeKeyPointIdentifierMatching:
+    """Validate id-based judge matching for key points."""
+
+    def _question_with_ids(self):
+        question_set = load_question_set_from_dict(
+            {
+                "version": "1.0",
+                "document": "doc.md",
+                "questions": [
+                    {
+                        "id": "q1",
+                        "question": "What is required?",
+                        "category": "general",
+                        "difficulty": "standard",
+                        "expected": {
+                            "key_points": [
+                                {"id": "kp_auth", "point": "Only authorized users can merge"},
+                                {"id": "kp_checks", "point": "All required checks must pass"},
+                                {"id": "kp_review", "point": "At least one reviewer approves"},
+                            ],
+                            "anti_points": [{"id": "ap_none", "point": "Anyone can merge immediately"}],
+                        },
+                    }
+                ],
+            }
+        )
+        return question_set.questions[0]
+
+    def _run_eval(self, monkeypatch, judge_payload):
+        class StubModelManager:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            def query(self, *_args, **_kwargs):
+                return judge_payload
+
+        monkeypatch.setattr(questioning_module, "ModelManager", StubModelManager)
+        step = QuestioningStep(models_config={}, session_config={}, judge_model="claude")
+        return step._evaluate_answer(
+            question=self._question_with_ids(),
+            model_name="claude",
+            answer_text="Test answer",
+        )
+
+    def test_key_points_match_when_judge_returns_different_order(self, monkeypatch):
+        evaluation = self._run_eval(
+            monkeypatch,
+            {
+                "key_points": [
+                    {"id": "kp_review", "point": "review exists", "matched": True, "reason": "ok"},
+                    {"id": "kp_auth", "point": "auth exists", "matched": False, "reason": "missing"},
+                    {"id": "kp_checks", "point": "checks exist", "matched": True, "reason": "ok"},
+                ],
+                "anti_points": [{"id": "ap_none", "point": "bad", "present": False, "reason": "ok"}],
+                "is_evasive": False,
+                "reasoning": "ordered differently",
+            },
+        )
+
+        assert evaluation.key_point_coverage["Only authorized users can merge"] is False
+        assert evaluation.key_point_coverage["All required checks must pass"] is True
+        assert evaluation.key_point_coverage["At least one reviewer approves"] is True
+        assert evaluation.matched_key_points == 2
+
+    def test_key_points_match_when_judge_paraphrases_text_but_keeps_id(self, monkeypatch):
+        evaluation = self._run_eval(
+            monkeypatch,
+            {
+                "key_points": [
+                    {
+                        "id": "kp_auth",
+                        "point": "merge access is limited to authorized people",
+                        "matched": True,
+                        "reason": "semantic match",
+                    },
+                    {
+                        "id": "kp_checks",
+                        "point": "all mandatory checks are green",
+                        "matched": True,
+                        "reason": "semantic match",
+                    },
+                    {
+                        "id": "kp_review",
+                        "point": "a reviewer has approved this",
+                        "matched": False,
+                        "reason": "not found",
+                    },
+                ],
+                "anti_points": [{"id": "ap_none", "point": "bad", "present": False, "reason": "ok"}],
+                "is_evasive": False,
+                "reasoning": "paraphrased points",
+            },
+        )
+
+        assert evaluation.key_point_coverage["Only authorized users can merge"] is True
+        assert evaluation.key_point_coverage["All required checks must pass"] is True
+        assert evaluation.key_point_coverage["At least one reviewer approves"] is False
+        assert evaluation.matched_key_points == 2
+
+    def test_omitted_key_point_id_is_not_evaluated_and_excluded_from_score(self, monkeypatch):
+        evaluation = self._run_eval(
+            monkeypatch,
+            {
+                "key_points": [
+                    {"id": "kp_auth", "point": "auth", "matched": True, "reason": "ok"},
+                ],
+                "anti_points": [{"id": "ap_none", "point": "bad", "present": False, "reason": "ok"}],
+                "is_evasive": False,
+                "reasoning": "missing ids",
+            },
+        )
+
+        assert evaluation.key_point_coverage["Only authorized users can merge"] is True
+        assert evaluation.key_point_coverage["All required checks must pass"] is None
+        assert evaluation.key_point_coverage["At least one reviewer approves"] is None
+        assert evaluation.matched_key_points == 1
+        assert evaluation.total_key_points == 1
+        assert evaluation.is_degraded is True

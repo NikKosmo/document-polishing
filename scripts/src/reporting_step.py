@@ -260,12 +260,10 @@ class ReportingStep:
                 section += f"\n**{model}:** {emoji} {ev.verdict}"
                 section += f" ({ev.matched_key_points}/{ev.total_key_points} key points)\n"
 
-                # Model's actual answer (first 300 chars)
+                # Model's actual answer
                 if ev.answer_text:
-                    answer_preview = ev.answer_text.strip().replace("\n", " ")
-                    if len(answer_preview) > 300:
-                        answer_preview = answer_preview[:300] + "..."
-                    section += f"- Answer: {answer_preview}\n"
+                    answer_text = ev.answer_text.strip().replace("\n", " ")
+                    section += f"- Answer: {answer_text}\n"
 
                 # Key point coverage
                 for kp, matched in ev.key_point_coverage.items():

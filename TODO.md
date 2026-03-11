@@ -17,6 +17,12 @@
 ### Whole-Document Questioning
 - [P1] [✓] Implement whole-document questioning pipeline (Step 5) - YAML question sets with expected key points/anti-points, multi-model answer collection, LLM judge evaluation with verdict/coverage/reasoning, integrated into polish.py via `--questions` flag and standalone `test_questions.py` CLI. Report includes verdict table, per-question details with model answers (300 char preview), key point coverage (✓/✗), anti-point violations, judge reasoning, document score, consensus summary. Fixed PAI context leak in Claude CLI (`--setting-sources local`), fixed YAML `document` field to be metadata-only (not file path), added `--question-results` to `generate_report.py` for modular report regeneration. 109 tests passing. - PR #TBD `2026-03-06` #feature #questioning #whole-document
 
+### Judge Key Point Matching
+- [P1] [✓] Replace free-text key point matching with stable identifiers — Added deterministic ID generation (sha256-based), judge prompt now includes IDs alongside key point text, matching by ID not text/position. Omitted IDs → "not evaluated" (excluded from score), degradation flag when >50% missing. Anti-points use same scheme. Backward compatible (auto-generates IDs for existing YAML). 3 new tests (reorder, paraphrase, missing). `2026-03-11` #bug #judge #key-point-matching
+
+### Ambiguity Detector False Positives
+- [P2] [✓] Add agreement-aware severity to ambiguity detector — New `_determine_shared_ambiguity_severity()` method checks agree=true + 0 key_differences + similarity >= configurable threshold (default 0.85) → LOW severity instead of MEDIUM. Real disagreements unchanged. `high_agreement_threshold` parameter on AmbiguityDetector. 3 new tests (theoretical→LOW, boundary, real disagreement→MEDIUM+). `2026-03-11` #bug #ambiguity-detector #false-positives
+
 ### Other Active Tasks
 - [P2] [ ] Test remaining context dependency documents (abbreviations, prerequisites, constraints, comprehensive) `2025-12-12` #testing #session-management
 
@@ -46,8 +52,12 @@
 - [P3] [ ] Fix Gemini JSON parsing failure (section_7 in todo.md test - looks like valid JSON but failed to parse) `2025-12-26` #edge-case #gemini #parsing
 - [P3] [ ] Investigate Gemini timeout issues (increase timeout or simplify prompts) `2025-12-26` #edge-case #gemini
 
+### Purpose Prompt Presets
+- [P3] [ ] Add purpose-based prompt presets — allow configuring polish prompt per document type (legal, technical, narrative, git-workflow) without per-run config. Makes tool adaptable to different audiences and writing styles. `2026-03-08` #feature #ux #prompting
+
 ### Increment 3 - Fix Generation
 - [P2] [ ] Implement `fix_generator.py` with real fix strategies `2025-12-01` #increment3
+  - 🚫 Blocked — flaw detection quality must be reliable first (D2 agreement-aware severity unresolved)
 - [P2] [ ] Implement `fix_applier.py` to modify documents `2025-12-01` #increment3
 - [P2] [ ] Add iteration support (re-test after fixes) `2025-12-01` #increment3
 - [P2] [ ] Implement agreement scoring (% of models that agree) `2025-12-01` #increment3
