@@ -1,5 +1,7 @@
 # Document Polishing TODO
 
+> Format: [`common_rules/todo.md`](../common_rules/todo.md)
+
 **Documentation ambiguity detection system tasks**
 
 ---
@@ -123,5 +125,3 @@
 - [P3] [ ] Web UI for reports `#feature`
 
 ---
-
-**See `../common_rules/todo.md` for format guidelines**
