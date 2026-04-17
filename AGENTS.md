@@ -171,6 +171,12 @@ document_polishing/
 - Follow session log format from `common_rules/session_log.md`
 - Project structure may change significantly during development
 
+## Test Commands
+
+- `.venv/bin/python -m pytest tests/ -q --tb=short`
+- `.venv/bin/python -m ruff check .`
+- `.venv/bin/python -m pyright scripts/src/`
+
 ---
 
 **Note:** This is an early-stage project under active development. Documentation and structure subject to change.
