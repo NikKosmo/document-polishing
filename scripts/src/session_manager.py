@@ -86,6 +86,12 @@ class SessionManager:
         """
         Create sessions for multiple models in parallel.
 
+        Models whose configured ``type`` is not ``cli`` (for example,
+        ``openai_compat`` HTTP-API models, which are stateless) are skipped:
+        no session is created for them, and they are queried statelessly by
+        ``ModelManager.query``. This keeps ``init_sessions`` from raising the
+        unknown-model ``ValueError`` from ``get_session_handler`` (AC-26).
+
         Args:
             model_names: List of model names to initialize
             document: Full markdown document content
@@ -98,9 +104,14 @@ class SessionManager:
         self._purpose = purpose or self.purpose_prompt
         results = {}
 
+        # Filter out models that don't use the CLI session mechanism.
+        # Anything that isn't type "cli" (default) is stateless from the
+        # session manager's perspective.
+        cli_models = [model for model in model_names if self.models_config.get(model, {}).get("type", "cli") == "cli"]
+
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = {
-                executor.submit(self.init_session, model, document, self._purpose): model for model in model_names
+                executor.submit(self.init_session, model, document, self._purpose): model for model in cli_models
             }
             for future in concurrent.futures.as_completed(futures):
                 model = futures[future]

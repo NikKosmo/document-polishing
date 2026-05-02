@@ -52,8 +52,10 @@ Two comparison strategies:
 
 ### Requirements
 - Python 3.11+
-- PyYAML
-- CLI access to `claude`, `gemini`, and/or `codex`
+- PyYAML, requests, python-dotenv (see `requirements.txt`)
+- At least one of:
+  - CLI access to `claude`, `gemini`, and/or `codex`, or
+  - An API key for any OpenAI-compatible HTTP endpoint (OpenRouter, OpenAI direct, Together, Groq, Anyscale, Azure OpenAI, Ollama, vLLM, llama.cpp server, …)
 
 ### Setup
 ```bash
@@ -96,6 +98,7 @@ Files created in `scripts/workspace/polish_TIMESTAMP/`:
 
 ```yaml
 models:
+  # CLI transport — local subprocess
   claude:
     type: cli
     command: claude
@@ -112,6 +115,18 @@ models:
     timeout: 30
     enabled: true
 
+  # OpenAI-compatible HTTP transport — provider-agnostic
+  # Same class serves OpenRouter, OpenAI direct, Together, Groq, Ollama, vLLM, etc.
+  # Switching providers is a config edit, not a code change.
+  openrouter_gpt_oss:
+    type: openai_compat
+    base_url: https://openrouter.ai/api/v1
+    api_key_env: OPENROUTER_API_KEY   # name of env var holding the bearer token
+    model_id: openai/gpt-oss-120b      # upstream model id sent in request body
+    timeout: 60                        # optional, default 60
+    # max_tokens: 4096                 # optional; omitted from request when unset
+    enabled: false                     # opt-in by default
+
 profiles:
   quick:    [claude, gemini]       # 2 models, 1 iteration
   standard: [claude, gemini, codex] # 3 models, 1 iteration
@@ -121,6 +136,8 @@ session_management:
   enabled: true
   mode: auto-recreate  # or fail-fast
 ```
+
+**Auth:** API keys for `openai_compat` models are read from environment variables named in each model's `api_key_env` config field. A `.env` file in the project root is loaded automatically (`python-dotenv`) so you can place keys there without exporting them manually.
 
 ## Project Structure
 
@@ -158,7 +175,7 @@ document_polishing/
 │   ├── test/                     # Test fixtures and procedures
 │   ├── question_testing/         # Framework design and plans
 │   └── archive/                  # Historical design docs
-├── tests/                        # 132 passing tests
+├── tests/                        # 136 passing tests
 ├── temp/                         # Work artifacts from experiments
 ├── AGENTS.md                     # Authoritative project reference
 └── TODO.md                       # Active task tracking
@@ -201,7 +218,7 @@ Week 1 exercises completed: format spec, strip script, manual question validatio
 
 ```bash
 source .venv/bin/activate
-pytest tests/ -v            # 132 tests, ~0.4s
+pytest tests/ -v            # 136 tests, ~0.5s
 ruff check .                # Linting
 ruff format --check .       # Format verification
 pyright scripts/src/        # Type checking (0 errors, warnings only)
@@ -211,7 +228,6 @@ pyright scripts/src/        # Type checking (0 errors, warnings only)
 
 - Fix generation is basic (adds clarification markers, no smart rewrites)
 - No iterative polishing (run once, review, manually improve)
-- CLI models only (no direct API support)
 - Cannot control model context window limits
 - Some models don't follow JSON prompt format consistently
 

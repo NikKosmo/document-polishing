@@ -23,6 +23,9 @@ cd scripts && python3 polish.py ../test/test_simple.md
 # Use specific models/profile
 cd scripts && python3 polish.py document.md --models claude,gemini --profile thorough
 
+# Use the OpenRouter Gemma model as the judge (set OPENROUTER_API_KEY in .env first)
+cd scripts && python3 polish.py document.md --judge openrouter_gemma
+
 # List models and version
 cd scripts && python3 polish.py --list-models
 cd scripts && python3 polish.py --version
@@ -94,14 +97,16 @@ document_polishing/
 │   ├── archive/               # Archived early design docs
 │   ├── test/                  # Test documents and procedures
 │   └── *.md                   # Design documentation
-├── tests/                 # Automated tests (132 tests)
+├── tests/                 # Automated tests (136 tests)
 ├── rules/                 # Project-specific rule overrides
 └── temp/                  # Temporary files
 ```
 
 ## Configuration
 
-**Models:** Configured in `scripts/config.yaml` - currently supports CLI-based models (claude, gemini, codex)
+**Models:** Configured in `scripts/config.yaml`. Two transport types are supported:
+- `type: cli` — local subprocess (claude, gemini, codex CLIs)
+- `type: openai_compat` — provider-agnostic OpenAI Chat Completions HTTP client (OpenRouter, OpenAI direct, Together, Groq, Anyscale, Azure OpenAI, Ollama, vLLM, …). Per-instance fields: `base_url`, `api_key_env` (env var name holding the bearer token), `model_id`, optional `timeout` (default 60) and `max_tokens` (omitted from request body when unset). `.env` is auto-loaded at every `ModelManager` construction site via `python-dotenv`.
 
 **Profiles:**
 - `quick` - 2 models, 1 iteration
@@ -160,7 +165,7 @@ document_polishing/
 **CLI scripts:** `scripts/extract_sections.py`, `scripts/test_sections.py`, `scripts/detect_ambiguities.py`, `scripts/generate_report.py`, `scripts/init_sessions.py`
 **Step modules:** `scripts/src/*_step.py` (extraction, session_init, testing, detection, reporting)
 **Supporting modules:** `scripts/src/model_interface.py`, `scripts/src/document_processor.py`, `scripts/src/prompt_generator.py`, `scripts/src/ambiguity_detector.py`, `scripts/src/session_manager.py`
-**Testing:** `tests/test_*.py` (132 tests), `docs/test/` (test documents and procedures)
+**Testing:** `tests/test_*.py` (136 tests), `docs/test/` (test documents and procedures)
 **Documentation:** `AGENTS.md` (this file), `README.md` (user guide), `docs/*.md` (design docs)
 **Development:** `SESSION_LOG.md` (history), `TODO.md` (pending tasks)
 

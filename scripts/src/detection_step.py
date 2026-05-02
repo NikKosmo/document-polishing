@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 from ambiguity_detector import Ambiguity, AmbiguityDetector, JudgeFailureError, Severity
+from env_loader import load_project_env
 from model_interface import ModelManager
 
 
@@ -169,6 +170,7 @@ class DetectionStep:
         # Initialize model manager if needed for judge queries
         self.model_manager = None
         if strategy == "llm_judge" and models_config:
+            load_project_env()
             self.model_manager = ModelManager(models_config, {})
             if session_manager:
                 self.model_manager.session_manager = session_manager

@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 from ambiguity_detector import Ambiguity, Interpretation, Severity
+from env_loader import load_project_env
 from model_interface import ModelManager
 from session_init_step import SessionInitStep
 
@@ -478,6 +479,7 @@ class QuestioningStep:
         )
 
         # Dedicated model manager for this step
+        load_project_env()
         model_manager = ModelManager(self.models_config, self.session_config)
         model_manager.session_manager = session_result.session_manager
 
@@ -537,6 +539,7 @@ class QuestioningStep:
         self, question: WholeDocumentQuestion, model_name: str, answer_text: str
     ) -> QuestionEvaluation:
         """Evaluate one answer with LLM-as-Judge."""
+        load_project_env()
         judge_manager = ModelManager(self.models_config, self.session_config)
 
         judge_prompt = self._build_judge_prompt(question, answer_text)
