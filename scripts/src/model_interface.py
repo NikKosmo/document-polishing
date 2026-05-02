@@ -3,14 +3,36 @@
 import json
 import os
 import subprocess
+import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+import requests
+
 _NOHOOKS_DIR = Path.home() / ".config" / "nohooks"
+
+# Prepended to every model prompt (CLI and HTTP) to prevent wrapper formats
+# (PAI, markdown fences, prose around the JSON object, etc.). Shared by all
+# ModelInterface implementations so JSON-output behavior is consistent across
+# transports.
+_GUARD = (
+    "CRITICAL: Output ONLY a single raw JSON object. No preamble, no explanation, "
+    "no markdown code fences, no frameworks, no wrappers. Do not read any files. "
+    "Do not use any tools. Your entire response must be parseable by json.loads().\n\n"
+)
 
 from session_handlers import SessionCreationError, SessionQueryError
 from session_manager import SessionManager
+
+
+class OpenAICompatConfigError(Exception):
+    """Raised when an ``openai_compat`` model has invalid or missing configuration.
+
+    This is a fatal startup error: callers should not swallow it. ``ModelManager``
+    re-raises this exception so the process exits non-zero before any document
+    query is issued (per AC-11).
+    """
 
 
 class ModelInterface(ABC):
@@ -30,13 +52,6 @@ class CLIModel(ModelInterface):
         self.args = args or []
         self.timeout = timeout
 
-    # Prepended to every CLI prompt to prevent wrapper formats (PAI, markdown fences, etc.)
-    _GUARD = (
-        "CRITICAL: Output ONLY a single raw JSON object. No preamble, no explanation, "
-        "no markdown code fences, no frameworks, no wrappers. Do not read any files. "
-        "Do not use any tools. Your entire response must be parseable by json.loads().\n\n"
-    )
-
     def query(self, prompt: str) -> Dict[str, Any]:
         """Execute CLI command with prompt and return parsed response"""
         try:
@@ -54,7 +69,7 @@ class CLIModel(ModelInterface):
 
             result = subprocess.run(
                 cmd,
-                input=self._GUARD + prompt,
+                input=_GUARD + prompt,
                 capture_output=True,
                 text=True,
                 timeout=self.timeout,
@@ -98,6 +113,117 @@ class CLIModel(ModelInterface):
         return text.strip()
 
 
+class OpenAICompatModel(ModelInterface):
+    """OpenAI Chat Completions HTTP transport.
+
+    Provider-agnostic: the URL, env-var name for the bearer token, and the model
+    identifier are all sourced from configuration, never hardcoded. Any
+    OpenAI-compatible endpoint (OpenRouter, OpenAI direct, Together, Groq,
+    Anyscale, Azure OpenAI, Ollama, vLLM, llama.cpp server, …) can be served by
+    this single class via per-instance ``base_url`` / ``api_key_env`` /
+    ``model_id`` config fields.
+    """
+
+    def __init__(
+        self,
+        base_url: str,
+        api_key_env: str,
+        model_id: str,
+        timeout: int = 60,
+        max_tokens: Optional[int] = None,
+    ):
+        self.base_url = base_url
+        self.api_key_env = api_key_env
+        self.model_id = model_id
+        self.timeout = timeout
+        self.max_tokens = max_tokens
+
+        # Read bearer token at construction time from the env var named in config.
+        # The env var name is *not* hardcoded here — it lives entirely in config.
+        self.api_key = os.environ.get(self.api_key_env)
+        if not self.api_key:
+            raise OpenAICompatConfigError(
+                f"Environment variable '{self.api_key_env}' is not set "
+                f"(required for openai_compat model with base_url={self.base_url})"
+            )
+
+    def _endpoint(self) -> str:
+        """Build the chat completions endpoint, tolerating trailing slashes."""
+        return f"{self.base_url.rstrip('/')}/chat/completions"
+
+    def _build_payload(self, prompt: str) -> Dict[str, Any]:
+        """Build the JSON request body. ``max_tokens`` is omitted when unset.
+
+        Prepends the shared module-level ``_GUARD`` preamble to the user content
+        for parity with ``CLIModel.query()`` — keeps JSON-output behavior
+        consistent across transports so the same parser handles every response.
+        """
+        payload: Dict[str, Any] = {
+            "model": self.model_id,
+            "messages": [{"role": "user", "content": _GUARD + prompt}],
+        }
+        if self.max_tokens is not None:
+            payload["max_tokens"] = self.max_tokens
+        return payload
+
+    def _strip_markdown_code_blocks(self, text: str) -> str:
+        """Strip markdown code blocks from text (e.g., ```json ... ```)."""
+        text = text.strip()
+        if text.startswith("```json"):
+            text = text[7:]
+        elif text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        return text.strip()
+
+    def query(self, prompt: str) -> Dict[str, Any]:
+        """Send the prompt to the configured chat completions endpoint."""
+        url = self._endpoint()
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = self._build_payload(prompt)
+
+        try:
+            response = requests.post(
+                url,
+                headers=headers,
+                json=payload,
+                timeout=self.timeout,
+            )
+        except requests.exceptions.RequestException as exc:
+            return {"error": True, "message": str(exc)}
+        except Exception as exc:  # pragma: no cover - defensive
+            return {"error": True, "message": str(exc)}
+
+        if not (200 <= response.status_code < 300):
+            text = response.text
+            return {"error": True, "stderr": text, "raw_response": text}
+
+        # 2xx response — extract content from choices[0].message.content
+        try:
+            body = response.json()
+            content = body["choices"][0]["message"]["content"]
+        except (ValueError, KeyError, IndexError, TypeError) as exc:
+            text = response.text
+            return {"error": True, "message": f"Malformed OpenAI-compatible response: {exc}", "raw_response": text}
+
+        # Try parsing content as JSON, then JSON-in-code-fences, then return raw.
+        if not isinstance(content, str):
+            return {"error": False, "raw_response": content}
+
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError:
+            stripped = self._strip_markdown_code_blocks(content)
+            try:
+                return json.loads(stripped)
+            except json.JSONDecodeError:
+                return {"error": False, "raw_response": content.strip()}
+
+
 class ModelFactory:
     """Factory for creating model instances"""
 
@@ -109,12 +235,39 @@ class ModelFactory:
         )
 
     @staticmethod
+    def create_openai_compat_model(name: str, config: Dict[str, Any]) -> "OpenAICompatModel":
+        """Create an OpenAI-compatible HTTP model from configuration.
+
+        Required fields (no defaults): ``base_url``, ``api_key_env``, ``model_id``.
+        Optional fields: ``timeout`` (default 60), ``max_tokens`` (no default;
+        omitted from the HTTP request body when unset).
+        """
+        missing: list = []
+        for required in ("base_url", "api_key_env", "model_id"):
+            if not config.get(required):
+                missing.append(required)
+        if missing:
+            raise OpenAICompatConfigError(
+                f"openai_compat model '{name}' is missing required config field(s): {', '.join(missing)}"
+            )
+
+        return OpenAICompatModel(
+            base_url=config["base_url"],
+            api_key_env=config["api_key_env"],
+            model_id=config["model_id"],
+            timeout=config.get("timeout", 60),
+            max_tokens=config.get("max_tokens"),
+        )
+
+    @staticmethod
     def create(name: str, config: Dict[str, Any]) -> ModelInterface:
         """Create appropriate model interface based on config type"""
         model_type = config.get("type", "cli")
 
         if model_type == "cli":
             return ModelFactory.create_cli_model(name, config)
+        elif model_type == "openai_compat":
+            return ModelFactory.create_openai_compat_model(name, config)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -135,6 +288,12 @@ class ModelManager:
                 try:
                     self.models[name] = ModelFactory.create(name, config)
                     print(f"✓ Loaded model: {name}")
+                except OpenAICompatConfigError as e:
+                    # Fail loud for openai_compat config problems (AC-11): the
+                    # process exits non-zero before any document query is issued
+                    # and the user-visible error message names the missing env var.
+                    print(f"✗ Failed to load model {name}: {e}", file=sys.stderr)
+                    sys.exit(1)
                 except Exception as e:
                     print(f"✗ Failed to load model {name}: {e}")
 

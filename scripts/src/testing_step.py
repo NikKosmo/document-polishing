@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from env_loader import load_project_env
 from model_interface import ModelManager
 from prompt_generator import PromptGenerator
 from session_manager import SessionManager
@@ -102,6 +103,7 @@ class TestingStep:
         self.session_config = session_config or {}
 
         # Initialize ModelManager
+        load_project_env()
         self.model_manager = ModelManager(models_config, session_config)
 
         # Use provided session manager if available

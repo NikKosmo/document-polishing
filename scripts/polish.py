@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 from ambiguity_detector import AmbiguityDetector, JudgeFailureError, Severity
 from detection_step import DetectionStep
 from document_processor import DocumentProcessor
+from env_loader import load_project_env
 
 # Import step modules
 from extraction_step import ExtractionStep
@@ -50,6 +51,7 @@ class DocumentPolisher:
         self.session_config = self.config.get("session_management", {"enabled": False})
 
         # Initialize components
+        load_project_env()
         self.model_manager = ModelManager(self.config["models"], session_config=self.session_config)
         self.processor = DocumentProcessor(str(self.document_path))
         self.prompt_gen = PromptGenerator()

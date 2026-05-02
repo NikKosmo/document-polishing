@@ -27,6 +27,8 @@
 
 ### Other Active Tasks
 - [P2] [ ] Test remaining context dependency documents (abbreviations, prerequisites, constraints, comprehensive) `2025-12-12` #testing #session-management
+- [P3] [ ] Misleading "Session failed for openrouter_*" log line — `SessionManager.init_sessions_parallel` correctly filters non-`cli` model types out of session init (they are stateless), but the surrounding orchestration code (`scripts/src/session_init_step.py:138-145`, `scripts/src/model_interface.py:318-320`) still reports the filtered models as "Session failed" in the user-visible output. They didn't fail; they were intentionally bypassed. Distinguish "skipped (stateless)" from "failed". `2026-05-02` #observability #ux #openai_compat
+- [P3] [ ] AC-24 spec defect in OpenRouter Integration PRD — `generate_report.py --judge X` only stores X as a metadata label rendered in the report (`reporting_step.py:113`); no judge query runs in that path. AC-24 as written cannot be satisfied without bolting fake judge-running logic into the reporting stage. On next PRD revision, either drop AC-24 or downgrade to "openrouter_gemma can be passed to generate_report.py --judge without breaking the report metadata field." `2026-05-02` #spec #docs
 
 ## Backlog
 
@@ -48,6 +50,7 @@
 
 ### Increment 2 - Other Polish Tasks
 - [P2] [ ] Add adversarial/red-team prompt variant for interpretation testing `2025-12-01` #improvement #gemini-feedback
+- [P2] [ ] Profile `iterations` field is dead config — `scripts/config.yaml` defines `iterations: 1/2/3` for `quick`/`standard`/`thorough` profiles, but neither `polish.py` nor anything under `scripts/src/` reads it. Verified via `grep -rn iteration scripts/`. Profiles functionally differ only by their `models` list; every run is single-pass regardless of profile. Either (a) implement actual multi-iteration polishing (run testing + detection N times and aggregate), or (b) remove the dead field from `config.yaml` and any docs that mention it to avoid misleading users. Discovered while polishing the team-coordinator skill draft. `2026-05-01` #bug #cli #usability
 
 ### Edge Cases (Return if issues recur)
 - [P3] [ ] Handle models asking for clarification instead of following prompt format (e.g., section_20 in document_structure test - Claude responded with "I need to clarify the context here" instead of JSON) `2025-12-26` #edge-case #prompt-compliance
@@ -75,6 +78,7 @@
 
 ## Completed
 
+- [P3] [✓] API model support (OpenAI, Anthropic direct) — Delivered as `type: openai_compat` HTTP transport (provider-agnostic OpenAI Chat Completions client). Same class serves OpenRouter, OpenAI direct, Together, Groq, Ollama, vLLM, Azure OpenAI, etc. via per-instance `base_url` + `api_key_env` + `model_id` config. Three `openrouter_*` example entries in `config.yaml` (gemma free, qwen free, gpt-oss paid). `2026-05-02` #feature #openai_compat
 - [P1] [✓] Intermediate result saving with --resume flag - `TestingStep.test_sections` now saves `test_results_partial.json` after each section using os.fsync for durability. On crash, re-running with `--resume` skips already-completed sections. Partial file cleaned up on successful completion. Corrupt partial handled gracefully. Added `--resume` CLI flag to polish.py. 5 new tests in test_intermediate_saves.py (132 total). - PR #33 `2026-02-25` #feature #resilience #crash-recovery
 - [P1] [✓] Fix half-step numbering across entire pipeline - Renumbered steps from 1/1.5/2/3/4 to sequential 1/2/3/4/5 across scripts/polish.py, session_init_step.py, testing_step.py, detection_step.py, reporting_step.py. No functional changes, pure string/docstring updates. All 132 tests passing. - PR #32 `2026-02-25` #architecture #refactor #clarity
 - [P1] [✓] Implement Question-Based Testing Framework (Phase 1 & 2) - Created questioning_step.py (~1,000 LOC: 6 dataclasses, ElementExtractor with 8 regex patterns, TemplateApplicator with 14 templates, QuestionValidator with 4 rules, coverage calculation), question_templates.json (14 templates across 5 categories), generate_questions.py CLI (~300 LOC: generate/validate/coverage commands), test_questioning_step.py (47 tests, 85% coverage) - Generates targeted questions with 70% section coverage, 60% element coverage targets - Template-based generation (no LLM calls, deterministic) - Fixed 2 Codex review bugs (element coverage counting, short answer leakage detection) - All 127 tests passing (80 original + 47 new) - PR #26 `2025-12-28` #question-testing #phase1 #phase2 #feature
@@ -121,7 +125,6 @@
 - [P3] [ ] Document real-world use cases and examples `#docs`
 - [P3] [ ] Create demo video/walkthrough `#docs #marketing`
 - [P3] [ ] Add "When NOT to use this tool" section to docs `#docs #gemini-feedback`
-- [P3] [ ] API model support (OpenAI, Anthropic direct) `#feature`
 - [P3] [ ] Web UI for reports `#feature`
 
 ---
